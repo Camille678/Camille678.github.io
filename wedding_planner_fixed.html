@@ -1,0 +1,3082 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我们结婚啦- 智能婚礼筹备助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    
+    <!-- 配置Tailwind自定义颜色和字体 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#F8B6CD', // 主色调：浪漫粉
+                        secondary: '#D885A3', // 辅助色：深粉色
+                        accent: '#FFDFDF', // 强调色：浅粉色
+                        neutral: '#F9F9F9', // 中性色：浅灰
+                        dark: '#5A5A5A', // 深色文本
+                        agent: '#A8DADC', // 智能助手颜色：浅蓝色
+                        high: '#FF6B6B', // 高优先级
+                        medium: '#FFD166', // 中优先级
+                        low: '#06D6A0' // 低优先级
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .text-shadow {
+                text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+            }
+            .transition-custom {
+                transition: all 0.3s ease;
+            }
+            .agent-bubble {
+                border-radius: 18px 18px 18px 4px;
+            }
+            .user-bubble {
+                border-radius: 18px 18px 4px 18px;
+            }
+            .priority-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                display: inline-block;
+            }
+            .subtask-indent {
+                border-left: 2px dashed #e2e8f0;
+                margin-left: 1rem;
+                padding-left: 1rem;
+            }
+            .edit-mode-input {
+                @apply w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary text-sm;
+            }
+            .edit-btn {
+                @apply text-gray-400 hover:text-primary transition-custom opacity-0 group-hover:opacity-100;
+            }
+        }
+    </style>
+</head>
+<body class="bg-neutral min-h-screen text-dark font-sans">
+    <!-- 顶部导航栏 -->
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-heart text-secondary text-2xl"></i>
+                <h1 class="text-xl font-bold text-secondary">我们结婚啦 </h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="countdownBtn" class="text-secondary hover:text-primary transition-custom">
+                    <i class="fa fa-calendar"></i>
+                </button>
+                <button id="agentBtn" class="text-agent hover:text-blue-400 transition-custom">
+                    <i class="fa fa-robot"></i>
+                </button>
+                <button id="settingsBtn" class="text-secondary hover:text-primary transition-custom">
+                    <i class="fa fa-cog"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 倒计时区域 -->
+    <div id="countdownSection" class="bg-gradient-to-r from-primary to-secondary text-white py-4">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-sm mb-1">距离我们的婚礼还有</p>
+            <div class="flex justify-center space-x-4 text-lg font-bold">
+                <div id="days" class="flex flex-col">
+                    <span>00</span>
+                    <span class="text-xs mt-1">天</span>
+                </div>
+                <span class="">:</span>
+                <div id="hours" class="flex flex-col">
+                    <span>00</span>
+                    <span class="text-xs mt-1">时</span>
+                </div>
+                <span>:</span>
+                <div id="minutes" class="flex flex-col">
+                    <span>00</span>
+                    <span class="text-xs mt-1">分</span>
+                </div>
+                <span>:</span>
+                <div id="seconds" class="flex flex-col">
+                    <span>00</span>
+                    <span class="text-xs mt-1">秒</span>
+                </div>
+            </div>
+            <button id="editWeddingDate" class="mt-2 text-xs bg-white bg-opacity-20 rounded-full px-3 py-1 hover:bg-opacity-30 transition-custom">
+                修改婚礼日期
+            </button>
+        </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-6">
+        <!-- 智能助手推荐区 -->
+        <div class="bg-white rounded-xl shadow-sm p-4 mb-6 border-l-4 border-agent">
+            <div class="flex items-start">
+                <div class="bg-agent rounded-full w-8 h-8 flex items-center justify-center text-white mr-3 flex-shrink-0">
+                    <i class="fa fa-lightbulb-o"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-agent mb-2">智能助手建议</h3>
+                    <p id="agentRecommendation" class="text-sm text-gray-600">根据您的婚礼日期，现在应该开始预订婚礼场地了，建议至少考察3-5个场地进行比较。</p>
+                    <button id="viewMoreTips" class="text-xs text-agent mt-2 hover:underline">查看更多建议</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 进度概览 -->
+        <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-lg font-semibold">筹备进度</h2>
+                <div class="flex space-x-2">
+                    <button id="batchEditBtn" class="text-xs text-secondary hover:underline flex items-center">
+                        <i class="fa fa-pencil mr-1"></i> 批量编辑
+                    </button>
+                    <button id="sortTasksBtn" class="text-xs text-secondary hover:underline flex items-center">
+                        <i class="fa fa-sort mr-1"></i> 排序
+                    </button>
+                </div>
+            </div>
+            <div class="mb-2 flex justify-between text-sm">
+                <span>已完成任务</span>
+                <span id="completedTasks">0</span>/<span id="totalTasks">0</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
+                <div id="progressBar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                <div class="bg-accent rounded-lg p-2">
+                    <p class="text-secondary font-semibold">前期准备</p>
+                    <p id="preparationProgress">0/0</p>
+                </div>
+                <div class="bg-accent rounded-lg p-2">
+                    <p class="text-secondary font-semibold">婚礼当天</p>
+                    <p id="ceremonyProgress">0/0</p>
+                </div>
+                <div class="bg-accent rounded-lg p-2">
+                    <p class="text-secondary font-semibold">后续事宜</p>
+                    <p id="afterwardsProgress">0/0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 预算追踪 -->
+        <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
+            <h2 class="text-lg font-semibold mb-3 flex items-center">
+                <i class="fa fa-money text-secondary mr-2"></i>预算追踪
+            </h2>
+            <div class="mb-3">
+                <div class="flex justify-between text-sm mb-1">
+                    <span>总预算</span>
+                    <span id="totalBudget">¥0</span>
+                </div>
+                <div class="flex justify-between text-sm mb-2">
+                    <span>已花费</span>
+                    <span id="spentBudget">¥0</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="budgetBar" class="bg-secondary h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+            <button id="editBudgetBtn" class="text-xs text-secondary hover:underline">编辑预算</button>
+        </div>
+
+        <!-- 任务分类和筛选 -->
+        <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
+            <div class="flex flex-wrap gap-2 mb-4">
+                <button class="category-btn bg-primary text-white px-4 py-2 rounded-full text-sm whitespace-nowrap active" data-category="all">
+                    全部任务
+                </button>
+                <button class="category-btn bg-white text-dark px-4 py-2 rounded-full text-sm whitespace-nowrap border border-gray-200" data-category="preparation">
+                    前期准备
+                </button>
+                <button class="category-btn bg-white text-dark px-4 py-2 rounded-full text-sm whitespace-nowrap border border-gray-200" data-category="ceremony">
+                    婚礼当天
+                </button>
+                <button class="category-btn bg-white text-dark px-4 py-2 rounded-full text-sm whitespace-nowrap border border-gray-200" data-category="afterwards">
+                    后续事宜
+                </button>
+            </div>
+            
+            <div class="flex flex-wrap gap-2">
+                <button class="priority-btn bg-white text-dark px-4 py-2 rounded-full text-sm whitespace-nowrap border border-gray-200 active" data-priority="all">
+                    全部优先级
+                </button>
+                <button class="priority-btn bg-white text-dark px-4 py-2 rounded-full text-sm whitespace-nowrap border border-gray-200" data-priority="high">
+                    <span class="priority-dot bg-high mr-1"></span> 高优先级
+                </button>
+                <button class="priority-btn bg-white text-dark px-4 py-2 rounded-full text-sm whitespace-nowrap border border-gray-200" data-priority="medium">
+                    <span class="priority-dot bg-medium mr-1"></span> 中优先级
+                </button>
+                <button class="priority-btn bg-white text-dark px-4 py-2 rounded-full text-sm whitespace-nowrap border border-gray-200" data-priority="low">
+                    <span class="priority-dot bg-low mr-1"></span> 低优先级
+                </button>
+            </div>
+        </div>
+
+        <!-- 批量操作工具栏 (默认隐藏) -->
+        <div id="batchOperationsBar" class="bg-white rounded-xl shadow-sm p-3 mb-6 hidden">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center">
+                    <input type="checkbox" id="selectAllTasks" class="w-4 h-4 accent-primary mr-2">
+                    <label for="selectAllTasks" class="text-sm">全选 (<span id="selectedCount">0</span>)</label>
+                </div>
+                <div class="flex space-x-2">
+                    <button id="batchCompleteBtn" class="px-3 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200 transition-custom">
+                        <i class="fa fa-check mr-1"></i> 标记完成
+                    </button>
+                    <button id="batchDeleteBtn" class="px-3 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200 transition-custom">
+                        <i class="fa fa-trash mr-1"></i> 删除
+                    </button>
+                    <button id="cancelBatchBtn" class="px-3 py-1 border border-gray-300 rounded text-xs hover:bg-gray-50 transition-custom">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 任务列表 -->
+        <div id="tasksContainer" class="space-y-4">
+            <!-- 任务项将通过JavaScript动态生成 -->
+        </div>
+
+        <!-- 添加任务按钮组 -->
+        <div class="fixed bottom-6 right-6 flex flex-col items-end space-y-3">
+            <button id="batchAddTaskBtn" class="bg-primary text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg hover:bg-secondary transition-custom">
+                <i class="fa fa-file-text-o text-xl"></i>
+            </button>
+            <button id="addTaskBtn" class="bg-secondary text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:bg-primary transition-custom">
+                <i class="fa fa-plus text-xl"></i>
+            </button>
+        </div>
+    </main>
+
+    <!-- 智能助手聊天模态框 -->
+    <div id="agentModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl w-full max-w-md max-h-[90vh] flex flex-col m-4">
+            <div class="p-5 border-b bg-agent bg-opacity-10">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center">
+                        <div class="bg-agent rounded-full w-8 h-8 flex items-center justify-center text-white mr-3">
+                            <i class="fa fa-robot"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-agent">婚礼智能助手</h3>
+                    </div>
+                    <button id="closeAgentModalBtn" class="text-gray-400 hover:text-dark">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">有任何婚礼筹备问题，我都会尽力帮您解答</p>
+            </div>
+            
+            <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-4">
+                <!-- 欢迎消息 -->
+                <div class="flex">
+                    <div class="bg-agent rounded-full w-6 h-6 flex items-center justify-center text-white mr-2 flex-shrink-0 mt-1">
+                        <i class="fa fa-robot text-xs"></i>
+                    </div>
+                    <div class="agent-bubble bg-agent bg-opacity-20 px-4 py-2 max-w-[80%]">
+                        <p class="text-sm">您好！我是您的婚礼智能助手。我可以帮您规划婚礼筹备进度、推荐合适的供应商、估算预算，以及解答任何关于婚礼筹备的问题。请问有什么可以帮助您的吗？</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 border-t">
+                <div class="flex">
+                    <input type="text" id="agentInput" placeholder="请输入您的问题或需求..." class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-agent mr-2">
+                    <button id="sendAgentMessage" class="bg-agent text-white rounded-lg px-4 py-2 hover:bg-opacity-90 transition-custom">
+                        <i class="fa fa-paper-plane"></i>
+                    </button>
+                </div>
+                <div class="flex flex-wrap gap-2 mt-2">
+                    <button class="quick-question text-xs bg-gray-100 px-3 py-1 rounded-full hover:bg-gray-200 transition-custom">如何修改预算？</button>
+                    <button class="quick-question text-xs bg-gray-100 px-3 py-1 rounded-full hover:bg-gray-200 transition-custom">如何调整截止时间？</button>
+                    <button class="quick-question text-xs bg-gray-100 px-3 py-1 rounded-full hover:bg-gray-200 transition-custom">如何添加注意事项？</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 任务详情模态框 -->
+    <div id="taskDetailModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl w-full max-w-md max-h-[80vh] overflow-y-auto m-4">
+            <div class="p-5 border-b">
+                <div class="flex justify-between items-center">
+                    <h3 id="modalTaskTitle" class="text-xl font-bold text-secondary"></h3>
+                    <div class="flex space-x-2">
+                        <button id="editTaskFromDetailBtn" class="text-secondary hover:text-primary transition-custom">
+                            <i class="fa fa-pencil"></i>
+                        </button>
+                        <button id="closeModalBtn" class="text-gray-400 hover:text-dark">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center mt-1">
+                    <p id="modalTaskCategory" class="text-sm text-gray-500 mr-3"></p>
+                    <span id="modalTaskPriority" class="text-xs px-2 py-0.5 rounded-full"></span>
+                </div>
+            </div>
+            <div class="p-5">
+                <div class="mb-4">
+                    <h4 class="font-semibold mb-2 flex items-center">
+                        <i class="fa fa-info-circle text-primary mr-2"></i>
+                        任务描述
+                    </h4>
+                    <div class="group">
+                        <p id="modalTaskDescription" class="text-sm text-gray-600"></p>
+                        <button class="edit-btn absolute right-8" data-field="description">
+                            <i class="fa fa-pencil"></i>
+                        </button>
+                    </div>
+                    <div id="descriptionEditContainer" class="hidden mt-1">
+                        <textarea id="editDescription" rows="3" class="edit-mode-input"></textarea>
+                        <div class="flex justify-end mt-1 space-x-1">
+                            <button id="cancelDescriptionEdit" class="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">取消</button>
+                            <button id="saveDescriptionEdit" class="text-xs px-2 py-1 bg-primary text-white rounded hover:bg-secondary">保存</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 子任务部分 -->
+                <div class="mb-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="font-semibold flex items-center">
+                            <i class="fa fa-list text-primary mr-2"></i>
+                            子任务
+                        </h4>
+                        <span id="subtasksProgress" class="text-xs text-gray-500"></span>
+                    </div>
+                    <div id="subtasksContainer" class="space-y-2 mb-3">
+                        <!-- 子任务将在这里动态生成 -->
+                    </div>
+                    <button id="addSubtaskBtn" class="text-xs text-primary hover:text-secondary flex items-center">
+                        <i class="fa fa-plus-circle mr-1"></i> 添加子任务
+                    </button>
+                </div>
+                
+                <!-- 注意事项（可直接编辑） -->
+                <div class="mb-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="font-semibold flex items-center">
+                            <i class="fa fa-lightbulb-o text-primary mr-2"></i>
+                            注意事项
+                        </h4>
+                        <button id="addNoteBtn" class="text-xs text-primary hover:text-secondary">
+                            <i class="fa fa-plus mr-1"></i> 添加
+                        </button>
+                    </div>
+                    <ul id="modalTaskNotes" class="text-sm text-gray-600 space-y-2">
+                        <!-- 注意事项将在这里动态生成 -->
+                    </ul>
+                </div>
+                
+                <!-- 截止日期（可直接编辑） -->
+                <div class="mb-4 group">
+                    <h4 class="font-semibold mb-2 flex items-center">
+                        <i class="fa fa-calendar-check-o text-primary mr-2"></i>
+                        截止日期
+                    </h4>
+                    <div class="flex items-center">
+                        <p id="modalTaskDueDate" class="text-sm text-gray-600"></p>
+                        <button class="edit-btn ml-2" data-field="dueDate">
+                            <i class="fa fa-pencil"></i>
+                        </button>
+                    </div>
+                    <div id="dueDateEditContainer" class="hidden mt-1">
+                        <input type="date" id="editDueDate" class="edit-mode-input">
+                        <div class="flex justify-end mt-1 space-x-1">
+                            <button id="cancelDueDateEdit" class="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">取消</button>
+                            <button id="saveDueDateEdit" class="text-xs px-2 py-1 bg-primary text-white rounded hover:bg-secondary">保存</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 预算（可直接编辑） -->
+                <div class="mb-4 group">
+                    <h4 class="font-semibold mb-2 flex items-center">
+                        <i class="fa fa-money text-primary mr-2"></i>
+                        预算
+                    </h4>
+                    <div class="flex items-center">
+                        <p id="modalTaskBudget" class="text-sm text-gray-600">¥0</p>
+                        <button class="edit-btn ml-2" data-field="budget">
+                            <i class="fa fa-pencil"></i>
+                        </button>
+                    </div>
+                    <div id="budgetEditContainer" class="hidden mt-1">
+                        <div class="flex items-center">
+                            <span class="mr-2">¥</span>
+                            <input type="number" id="editBudget" class="edit-mode-input" min="0">
+                        </div>
+                        <div class="flex justify-end mt-1 space-x-1">
+                            <button id="cancelBudgetEdit" class="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">取消</button>
+                            <button id="saveBudgetEdit" class="text-xs px-2 py-1 bg-primary text-white rounded hover:bg-secondary">保存</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="font-semibold mb-2 flex items-center">
+                        <i class="fa fa-history text-primary mr-2"></i>
+                        最近更新
+                    </h4>
+                    <p id="modalTaskLastUpdated" class="text-sm text-gray-600">从未更新</p>
+                </div>
+                <div class="flex items-center mt-6">
+                    <input type="checkbox" id="modalTaskComplete" class="w-5 h-5 accent-primary mr-2">
+                    <label for="modalTaskComplete" class="text-sm">标记为已完成</label>
+                </div>
+            </div>
+            <div class="p-5 border-t flex justify-end space-x-3">
+                <button id="deleteTaskBtn" class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-custom">
+                    <i class="fa fa-trash mr-1"></i> 删除任务
+                </button>
+                <button id="saveTaskBtn" class="px-4 py-2 bg-secondary text-white rounded-lg text-sm hover:bg-primary transition-custom">
+                    保存
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑子任务模态框 -->
+    <div id="editSubtaskModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl w-full max-w-md m-4">
+            <div class="p-5 border-b">
+                <div class="flex justify-between items-center">
+                    <h3 id="editSubtaskModalTitle" class="text-xl font-bold text-secondary">添加子任务</h3>
+                    <button id="closeEditSubtaskModalBtn" class="text-gray-400 hover:text-dark">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-5">
+                <form id="subtaskForm">
+                    <input type="hidden" id="subtaskId">
+                    <input type="hidden" id="parentTaskId">
+                    
+                    <div class="mb-4">
+                        <label for="subtaskTitle" class="block text-sm font-medium mb-1">子任务名称</label>
+                        <input type="text" id="subtaskTitle" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" required>
+                    </div>
+                    
+                    <div class="flex items-center mt-2">
+                        <input type="checkbox" id="subtaskComplete" class="w-5 h-5 accent-primary mr-2">
+                        <label for="subtaskComplete" class="text-sm">标记为已完成</label>
+                    </div>
+                </form>
+            </div>
+            <div class="p-5 border-t flex justify-end space-x-3">
+                <button id="cancelEditSubtaskBtn" class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-custom">
+                    取消
+                </button>
+                <button id="submitSubtaskBtn" class="px-4 py-2 bg-secondary text-white rounded-lg text-sm hover:bg-primary transition-custom">
+                    保存子任务
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑任务模态框 -->
+    <div id="editTaskModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl w-full max-w-md max-h-[80vh] overflow-y-auto m-4">
+            <div class="p-5 border-b">
+                <div class="flex justify-between items-center">
+                    <h3 id="editModalTitle" class="text-xl font-bold text-secondary">添加新任务</h3>
+                    <button id="closeEditModalBtn" class="text-gray-400 hover:text-dark">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-5">
+                <form id="taskForm">
+                    <input type="hidden" id="taskId">
+                    <input type="hidden" id="taskLastUpdated">
+                    
+                    <div class="mb-4">
+                        <label for="taskTitle" class="block text-sm font-medium mb-1">任务名称</label>
+                        <input type="text" id="taskTitle" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" required>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="taskCategory" class="block text-sm font-medium mb-1">任务分类</label>
+                        <select id="taskCategory" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" required>
+                            <option value="preparation">前期准备</option>
+                            <option value="ceremony">婚礼当天</option>
+                            <option value="afterwards">后续事宜</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="taskPriority" class="block text-sm font-medium mb-1">优先级</label>
+                        <select id="taskPriority" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" required>
+                            <option value="high">高 - 需要立即处理</option>
+                            <option value="medium" selected>中 - 按计划进行</option>
+                            <option value="low">低 - 可稍后处理</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="taskDescription" class="block text-sm font-medium mb-1">任务描述</label>
+                        <textarea id="taskDescription" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"></textarea>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="taskBudget" class="block text-sm font-medium mb-1">预算 (元)</label>
+                        <input type="number" id="taskBudget" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" min="0">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">注意事项</label>
+                        <div id="notesContainer" class="space-y-2">
+                            <div class="flex items-center">
+                                <input type="text" class="note-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" placeholder="添加注意事项...">
+                                <button type="button" class="add-note-btn ml-2 text-primary hover:text-secondary">
+                                    <i class="fa fa-plus-circle"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="taskDueDate" class="block text-sm font-medium mb-1">截止日期</label>
+                        <input type="date" id="taskDueDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                    </div>
+                    
+                    <div class="flex items-center mt-2">
+                        <input type="checkbox" id="taskComplete" class="w-5 h-5 accent-primary mr-2">
+                        <label for="taskComplete" class="text-sm">标记为已完成</label>
+                    </div>
+                </form>
+            </div>
+            <div class="p-5 border-t flex justify-end space-x-3">
+                <button id="cancelEditBtn" class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-custom">
+                    取消
+                </button>
+                <button id="submitTaskBtn" class="px-4 py-2 bg-secondary text-white rounded-lg text-sm hover:bg-primary transition-custom">
+                    保存任务
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 排序选项模态框 -->
+    <div id="sortOptionsModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl w-full max-w-md m-4">
+            <div class="p-5 border-b">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold text-secondary">任务排序</h3>
+                    <button id="closeSortModalBtn" class="text-gray-400 hover:text-dark">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-5">
+                <div class="space-y-3">
+                    <button class="sort-option w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-custom" data-sort="dueDate">
+                        <i class="fa fa-calendar mr-2 text-secondary"></i>
+                        按截止日期排序
+                    </button>
+                    <button class="sort-option w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-custom" data-sort="priority">
+                        <i class="fa fa-flag mr-2 text-secondary"></i>
+                        按优先级排序
+                    </button>
+                    <button class="sort-option w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-custom" data-sort="category">
+                        <i class="fa fa-folder mr-2 text-secondary"></i>
+                        按分类排序
+                    </button>
+                    <button class="sort-option w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-custom" data-sort="completion">
+                        <i class="fa fa-check-square-o mr-2 text-secondary"></i>
+                        按完成状态排序
+                    </button>
+                    <button class="sort-option w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-custom" data-sort="manual">
+                        <i class="fa fa-arrows mr-2 text-secondary"></i>
+                        手动拖拽排序
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 预算编辑模态框 -->
+    <div id="budgetModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl w-full max-w-md m-4">
+            <div class="p-5 border-b">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold text-secondary">预算设置</h3>
+                    <button id="closeBudgetModalBtn" class="text-gray-400 hover:text-dark">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-5">
+                <div class="mb-4">
+                    <label for="totalBudgetInput" class="block text-sm font-medium mb-1">总预算 (元)</label>
+                    <input type="number" id="totalBudgetInput" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" min="0" required>
+                </div>
+                
+                <h4 class="font-semibold mb-2 text-sm">各项目预算分配</h4>
+                
+                <div id="budgetItemsContainer" class="space-y-3 mb-4">
+                    <div class="flex items-center">
+                        <input type="text" value="场地费用" class="w-1/3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm" readonly>
+                        <input type="number" class="budget-item w-2/3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm" min="0">
+                    </div>
+                    <div class="flex items-center">
+                        <input type="text" value="餐饮服务" class="w-1/3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm" readonly>
+                        <input type="number" class="budget-item w-2/3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm" min="0">
+                    </div>
+                    <div class="flex items-center">
+                        <input type="text" value="婚纱礼服" class="w-1/3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm" readonly>
+                        <input type="number" class="budget-item w-2/3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm" min="0">
+                    </div>
+                    <div class="flex items-center">
+                        <input type="text" value="摄影摄像" class="w-1/3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm" readonly>
+                        <input type="number" class="budget-item w-2/3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm" min="0">
+                    </div>
+                    <div class="flex items-center">
+                        <input type="text" value="婚庆服务" class="w-1/3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm" readonly>
+                        <input type="number" class="budget-item w-2/3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm" min="0">
+                    </div>
+                    <div class="flex items-center">
+                        <input type="text" value="其他费用" class="w-1/3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm" readonly>
+                        <input type="number" class="budget-item w-2/3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm" min="0">
+                    </div>
+                </div>
+                
+                <div class="flex justify-between text-sm mb-2">
+                    <span>已分配</span>
+                    <span id="allocatedBudget">¥0</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2 mb-1">
+                    <div id="allocatedBudgetBar" class="bg-primary h-2 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="p-5 border-t flex justify-end">
+                <button id="saveBudgetBtn" class="px-4 py-2 bg-secondary text-white rounded-lg text-sm hover:bg-primary transition-custom">
+                    保存预算
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Markdown批量添加任务模态框 -->
+    <div id="batchAddModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl w-full max-w-md max-h-[80vh] overflow-y-auto m-4">
+            <div class="p-5 border-b">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold text-secondary">批量添加任务</h3>
+                    <button id="closeBatchModalBtn" class="text-gray-400 hover:text-dark">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-5">
+                <p class="text-sm text-gray-600 mb-4">使用Markdown格式批量添加任务，格式说明：</p>
+                <div class="bg-gray-50 p-3 rounded-lg text-xs text-gray-600 mb-4 text-left font-mono overflow-x-auto">
+                    <p class="mb-2"># 任务标题</p>
+                    <p class="mb-2">描述：这里是任务描述内容</p>
+                    <p class="mb-2">分类：前期准备|婚礼当天|后续事宜</p>
+                    <p class="mb-2">优先级：高|中|低</p>
+                    <p class="mb-2">预算：10000</p>
+                    <p class="mb-2">截止日期：2024-12-31</p>
+                    <p class="mb-2">注意事项：</p>
+                    <p class="mb-2">- 注意事项1</p>
+                    <p class="mb-2">- 注意事项2</p>
+                    <p class="mb-2">子任务：</p>
+                    <p class="mb-2">-- 子任务1</p>
+                    <p>-- 子任务2</p>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="markdownTasks" class="block text-sm font-medium mb-1">请输入任务内容</label>
+                    <textarea id="markdownTasks" rows="10" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-mono text-sm" placeholder="# 预订婚礼场地
+描述：选择并预订合适的婚礼场地
+分类：前期准备
+优先级：高
+预算：50000
+截止日期：2024-12-31
+注意事项：
+- 实地考察至少3-5个场地
+- 确认容纳人数和设施情况
+子任务：
+-- 预约场地参观
+-- 比较不同场地价格
+-- 签订场地合同
+
+# 联系婚庆公司
+描述：选择合适的婚庆公司
+分类：前期准备
+优先级：中
+预算：30000
+截止日期：2024-01-15
+注意事项：
+- 查看公司过往案例
+- 明确服务内容和价格
+子任务：
+-- 收集婚庆公司资料
+-- 预约面谈
+-- 确定最终选择"></textarea>
+                </div>
+                
+                <div id="batchImportResult" class="hidden p-3 rounded-lg mb-4"></div>
+            </div>
+            <div class="p-5 border-t flex justify-end space-x-3">
+                <button id="cancelBatchBtn" class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-custom">
+                    取消
+                </button>
+                <button id="importTasksBtn" class="px-4 py-2 bg-secondary text-white rounded-lg text-sm hover:bg-primary transition-custom">
+                    导入任务
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置婚礼日期模态框 -->
+    <div id="dateSettingModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl w-full max-w-md m-4">
+            <div class="p-5 border-b">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold text-secondary">设置婚礼日期</h3>
+                    <button id="closeDateModalBtn" class="text-gray-400 hover:text-dark">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-5">
+                <p class="text-sm text-gray-600 mb-4">请选择您的婚礼日期，我们将为您倒计时并提供筹备建议</p>
+                <input type="date" id="weddingDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary mb-4" required>
+            </div>
+            <div class="p-5 border-t flex justify-end">
+                <button id="saveDateBtn" class="px-4 py-2 bg-secondary text-white rounded-lg text-sm hover:bg-primary transition-custom">
+                    保存日期
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 工具函数：确保任务数据完整性，避免undefined
+        function ensureTaskIntegrity(task) {
+            // 基本属性默认值
+            const defaults = {
+                id: Date.now(),
+                title: '未命名任务',
+                category: 'preparation',
+                categoryName: '前期准备',
+                priority: 'medium',
+                description: '',
+                budget: 0,
+                notes: [],
+                subtasks: [],
+                dueDate: new Date().toISOString().split('T')[0],
+                completed: false,
+                lastUpdated: new Date().toISOString()
+            };
+            
+            // 确保子任务数组存在且每个子任务属性完整
+            const safeSubtasks = (task.subtasks || []).map(subtask => ({
+                id: subtask.id || Date.now() + Math.floor(Math.random() * 1000),
+                title: subtask.title || '未命名子任务',
+                completed: subtask.completed || false
+            }));
+            
+            // 确保注意事项数组存在
+            const safeNotes = task.notes || [];
+            
+            // 合并并返回安全的任务对象
+            return {
+                ...defaults,
+                ...task,
+                subtasks: safeSubtasks,
+                notes: safeNotes
+            };
+        }
+
+        // 示例任务数据（包含子任务）
+        let tasks = [
+            {
+                id: 1,
+                title: "确定婚礼日期",
+                category: "preparation",
+                categoryName: "前期准备",
+                priority: "high",
+                description: "与双方家长商议，确定最终的婚礼日期",
+                budget: 0,
+                notes: [
+                    "考虑节假日和亲友的时间安排",
+                    "避开特殊禁忌日期",
+                    "提前查询天气预报"
+                ],
+                subtasks: [
+                    { id: 101, title: "与双方父母沟通", completed: false },
+                    { id: 102, title: "确定大致时间段", completed: false },
+                    { id: 103, title: "最终确认并记录", completed: false }
+                ],
+                dueDate: "2023-12-31",
+                completed: false,
+                lastUpdated: "2023-11-15T10:30:00"
+            },
+            {
+                id: 2,
+                title: "预订婚礼场地",
+                category: "preparation",
+                categoryName: "前期准备",
+                priority: "high",
+                description: "选择并预订合适的婚礼仪式和婚宴场地",
+                budget: 50000,
+                notes: [
+                    "实地考察至少3-5个场地",
+                    "确认容纳人数和设施情况",
+                    "了解预订取消政策"
+                ],
+                subtasks: [
+                    { id: 201, title: "收集场地信息", completed: false },
+                    { id: 202, title: "预约场地参观", completed: false },
+                    { id: 203, title: "比较价格和服务", completed: false },
+                    { id: 204, title: "签订合同并支付定金", completed: false }
+                ],
+                dueDate: "2024-01-15",
+                completed: false,
+                lastUpdated: "2023-11-15T14:20:00"
+            },
+            {
+                id: 3,
+                title: "联系婚庆公司",
+                category: "preparation",
+                categoryName: "前期准备",
+                priority: "medium",
+                description: "选择合适的婚庆公司，确定婚礼策划方案",
+                budget: 30000,
+                notes: [
+                    "查看公司过往案例",
+                    "明确服务内容和价格",
+                    "签订详细合同"
+                ],
+                subtasks: [
+                    { id: 301, title: "筛选3-5家婚庆公司", completed: false },
+                    { id: 302, title: "预约面谈时间", completed: false },
+                    { id: 303, title: "确定婚礼主题和风格", completed: false }
+                ],
+                dueDate: "2024-01-30",
+                completed: false,
+                lastUpdated: "2023-11-16T09:15:00"
+            }
+        ];
+
+        // 预算数据
+        let budgetData = {
+            total: 0,
+            items: {
+                "场地费用": 0,
+                "餐饮服务": 0,
+                "婚纱礼服": 0,
+                "摄影摄像": 0,
+                "婚庆服务": 0,
+                "其他费用": 0
+            }
+        };
+
+        // 当前筛选条件
+        let currentFilters = {
+            category: 'all',
+            priority: 'all'
+        };
+
+        // 存储当前选中的任务ID和子任务ID
+        let currentTaskId = null;
+        let currentSubtaskId = null;
+        // 婚礼日期，默认设置为6个月后
+        let weddingDate = localStorage.getItem('weddingDate') || getDefaultWeddingDate();
+        // 排序方式
+        let sortMethod = 'dueDate';
+
+        // 智能助手预设回答
+        const agentResponses = {
+            "hello": "您好！很高兴为您服务。我是您的婚礼智能助手，有什么关于婚礼筹备的问题都可以问我哦。",
+            "hi": "您好！有什么可以帮助您的吗？",
+            "预算": "婚礼预算因规模、地点和档次不同而有很大差异。一般来说，小型婚礼可能在5-10万元，中型婚礼10-20万元，大型婚礼20万元以上。您可以直接在任务详情页点击预算旁边的编辑按钮修改具体金额，系统会自动更新您的总预算使用情况。",
+            "修改预算": "您可以在任务详情页找到预算信息，点击旁边的铅笔图标即可直接修改预算金额，无需进入完整编辑界面。修改后会自动更新到您的总预算统计中。",
+            "截止时间": "截止时间可以在任务详情页直接修改，点击日期旁边的编辑图标即可选择新的截止日期。系统会根据新的截止日期调整任务排序，并在智能助手建议中反映这一变化。",
+            "注意事项": "您可以在任务详情页添加、编辑或删除注意事项。点击'添加'按钮可以新增注意事项，每个注意事项右侧都有编辑和删除按钮，方便您随时更新信息。",
+            "准备时间": "通常建议提前6-12个月开始准备婚礼。前期3-6个月可以确定日期、场地和婚庆公司；中期3个月可以确定婚纱礼服、摄影团队和邀请嘉宾；最后1-2个月进行细节确认和彩排。",
+            "场地推荐": "选择婚礼场地要考虑宾客数量、预算和风格偏好。常见的场地类型有：酒店宴会厅（设施齐全，一站式服务）、户外草坪（自然浪漫，适合春夏）、民宿别墅（小型精致，私密性好）、特色餐厅（主题鲜明，餐饮有特色）。建议根据婚礼规模和季节选择合适的场地。",
+            "婚纱选择": "选择婚纱要考虑婚礼场地、主题风格和个人身材特点。户外婚礼适合轻盈简约的婚纱，教堂婚礼适合庄重华丽的款式，海滩婚礼则适合简洁飘逸的设计。试穿时可以多尝试几种风格，找到最适合自己的那一款。",
+            "流程": "典型的婚礼流程包括：迎亲环节、仪式环节（入场、誓言、交换戒指、拥吻等）、婚宴环节（致辞、敬酒、互动游戏等）。您可以根据自己的喜好调整流程，加入一些个性化元素，让婚礼更加难忘。",
+            "宾客名单": "制定宾客名单时可以分为必请和可选两类，先确定双方父母的亲友，再添加自己的朋友同事。考虑场地容量和预算，合理控制人数。发送请柬后要及时确认出席情况，以便安排座位和餐饮。",
+            "修改任务": "您可以通过点击任务查看详情，然后点击编辑按钮修改任务信息。也可以使用批量编辑功能同时修改多个任务的状态或其他属性。",
+            "优先级": "高优先级任务是需要立即处理的重要事项，中优先级是按计划进行的常规任务，低优先级是可以稍后处理的次要事项。您可以根据婚礼筹备的紧急程度和重要性来设置任务优先级。",
+            "子任务": "子任务可以帮助您将复杂的婚礼筹备工作分解为更小的步骤。您可以在任务详情页点击'添加子任务'按钮来创建子任务，也可以在批量导入时通过'--'前缀来定义子任务。当所有子任务完成后，系统会提示您是否将主任务标记为完成。",
+            "默认": "感谢您的提问。关于这个问题，我的建议是：首先确定您的具体需求和预算，然后可以参考一些婚礼案例获取灵感，也可以咨询专业的婚庆策划师获取更详细的方案。如果您有更具体的问题，我会尽力为您解答。"
+        };
+
+        // 获取默认婚礼日期（当前日期6个月后）
+        function getDefaultWeddingDate() {
+            const date = new Date();
+            date.setMonth(date.getMonth() + 6);
+            return date.toISOString().split('T')[0];
+        }
+
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function() {
+            // 从本地存储加载数据
+            loadFromLocalStorage();
+            
+            renderTasks();
+            updateProgress();
+            updateBudgetDisplay();
+            startCountdown();
+            generateAgentRecommendation();
+            setupEventListeners();
+        });
+
+        // 从本地存储加载数据
+        function loadFromLocalStorage() {
+            const savedTasks = localStorage.getItem('weddingTasks');
+            const savedBudget = localStorage.getItem('weddingBudget');
+            const savedSortMethod = localStorage.getItem('weddingSortMethod');
+            
+            if (savedTasks) {
+                try {
+                    const loadedTasks = JSON.parse(savedTasks);
+                    // 确保每个任务都有完整的属性
+                    tasks = loadedTasks.map(task => ensureTaskIntegrity(task));
+                } catch (e) {
+                    console.error('Failed to load tasks from localStorage', e);
+                    // 加载失败时使用默认任务
+                    tasks = tasks.map(task => ensureTaskIntegrity(task));
+                }
+            } else {
+                // 确保默认任务数据完整性
+                tasks = tasks.map(task => ensureTaskIntegrity(task));
+            }
+            
+            if (savedBudget) {
+                try {
+                    budgetData = JSON.parse(savedBudget);
+                    // 确保预算数据完整性
+                    budgetData.total = budgetData.total || 0;
+                    budgetData.items = budgetData.items || {
+                        "场地费用": 0,
+                        "餐饮服务": 0,
+                        "婚纱礼服": 0,
+                        "摄影摄像": 0,
+                        "婚庆服务": 0,
+                        "其他费用": 0
+                    };
+                } catch (e) {
+                    console.error('Failed to load budget from localStorage', e);
+                }
+            }
+            
+            if (savedSortMethod) {
+                sortMethod = savedSortMethod;
+            }
+        }
+
+        // 保存数据到本地存储
+        function saveToLocalStorage() {
+            // 保存前确保所有任务数据完整
+            const safeTasks = tasks.map(task => ensureTaskIntegrity(task));
+            localStorage.setItem('weddingTasks', JSON.stringify(safeTasks));
+            localStorage.setItem('weddingBudget', JSON.stringify(budgetData));
+            localStorage.setItem('weddingSortMethod', sortMethod);
+        }
+
+        // 设置所有事件监听器
+        function setupEventListeners() {
+            // 分类按钮点击事件
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // 移除所有按钮的active状态
+                    document.querySelectorAll('.category-btn').forEach(b => {
+                        b.classList.remove('bg-primary', 'text-white');
+                        b.classList.add('bg-white', 'text-dark', 'border', 'border-gray-200');
+                    });
+                    
+                    // 添加当前按钮的active状态
+                    this.classList.remove('bg-white', 'text-dark', 'border', 'border-gray-200');
+                    this.classList.add('bg-primary', 'text-white');
+                    
+                    // 更新筛选条件
+                    currentFilters.category = this.getAttribute('data-category') || 'all';
+                    filterAndRenderTasks();
+                });
+            });
+            
+            // 优先级筛选按钮点击事件
+            document.querySelectorAll('.priority-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // 移除所有按钮的active状态
+                    document.querySelectorAll('.priority-btn').forEach(b => {
+                        b.classList.remove('bg-primary', 'text-white');
+                        b.classList.add('bg-white', 'text-dark', 'border', 'border-gray-200');
+                    });
+                    
+                    // 添加当前按钮的active状态
+                    this.classList.remove('bg-white', 'text-dark', 'border', 'border-gray-200');
+                    this.classList.add('bg-primary', 'text-white');
+                    
+                    // 更新筛选条件
+                    currentFilters.priority = this.getAttribute('data-priority') || 'all';
+                    filterAndRenderTasks();
+                });
+            });
+
+            // 添加新任务按钮点击事件
+            document.getElementById('addTaskBtn').addEventListener('click', function() {
+                openEditTaskModal();
+            });
+
+            // 批量添加任务按钮点击事件
+            document.getElementById('batchAddTaskBtn').addEventListener('click', function() {
+                openBatchAddModal();
+            });
+
+            // 批量编辑按钮点击事件
+            document.getElementById('batchEditBtn').addEventListener('click', function() {
+                toggleBatchOperations();
+            });
+
+            // 排序按钮点击事件
+            document.getElementById('sortTasksBtn').addEventListener('click', function() {
+                openSortOptionsModal();
+            });
+
+            // 关闭排序选项模态框
+            document.getElementById('closeSortModalBtn').addEventListener('click', function() {
+                closeSortOptionsModal();
+            });
+
+            // 排序选项点击事件
+            document.querySelectorAll('.sort-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    const sortType = this.getAttribute('data-sort') || 'dueDate';
+                    setSortMethod(sortType);
+                    closeSortOptionsModal();
+                });
+            });
+
+            // 智能助手按钮点击事件
+            document.getElementById('agentBtn').addEventListener('click', function() {
+                openAgentModal();
+            });
+
+            // 关闭智能助手模态框
+            document.getElementById('closeAgentModalBtn').addEventListener('click', function() {
+                closeAgentModal();
+            });
+
+            // 发送智能助手消息
+            document.getElementById('sendAgentMessage').addEventListener('click', function() {
+                sendAgentMessage();
+            });
+
+            // 按Enter发送消息
+            document.getElementById('agentInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendAgentMessage();
+                }
+            });
+
+            // 快捷问题按钮
+            document.querySelectorAll('.quick-question').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.getElementById('agentInput').value = this.textContent || '';
+                    sendAgentMessage();
+                });
+            });
+
+            // 关闭批量添加模态框
+            document.getElementById('closeBatchModalBtn').addEventListener('click', function() {
+                closeBatchAddModal();
+            });
+
+            document.getElementById('cancelBatchBtn').addEventListener('click', function() {
+                closeBatchAddModal();
+            });
+
+            // 导入任务按钮点击事件
+            document.getElementById('importTasksBtn').addEventListener('click', function() {
+                importTasksFromMarkdown();
+            });
+
+            // 关闭任务详情模态框
+            document.getElementById('closeModalBtn').addEventListener('click', function() {
+                closeTaskDetailModal();
+            });
+
+            // 从详情模态框编辑任务
+            document.getElementById('editTaskFromDetailBtn').addEventListener('click', function() {
+                if (currentTaskId !== null) {
+                    closeTaskDetailModal();
+                    setTimeout(() => {
+                        openEditTaskModal(currentTaskId);
+                    }, 300);
+                }
+            });
+
+            // 添加子任务按钮
+            document.getElementById('addSubtaskBtn').addEventListener('click', function() {
+                if (currentTaskId !== null) {
+                    openEditSubtaskModal(null, currentTaskId);
+                }
+            });
+
+            // 关闭子任务编辑模态框
+            document.getElementById('closeEditSubtaskModalBtn').addEventListener('click', function() {
+                closeEditSubtaskModal();
+            });
+
+            document.getElementById('cancelEditSubtaskBtn').addEventListener('click', function() {
+                closeEditSubtaskModal();
+            });
+
+            // 提交子任务按钮
+            document.getElementById('submitSubtaskBtn').addEventListener('click', function() {
+                saveSubtask();
+            });
+
+            // 关闭编辑任务模态框
+            document.getElementById('closeEditModalBtn').addEventListener('click', function() {
+                closeEditTaskModal();
+            });
+
+            document.getElementById('cancelEditBtn').addEventListener('click', function() {
+                closeEditTaskModal();
+            });
+
+            // 保存任务按钮点击事件
+            document.getElementById('saveTaskBtn').addEventListener('click', function() {
+                updateTaskCompletion();
+                closeTaskDetailModal();
+            });
+
+            // 提交任务按钮点击事件
+            document.getElementById('submitTaskBtn').addEventListener('click', function() {
+                saveTask();
+            });
+
+            // 删除任务按钮点击事件
+            document.getElementById('deleteTaskBtn').addEventListener('click', function() {
+                if (currentTaskId !== null && confirm('确定要删除这个任务吗？所有子任务也将被删除。')) {
+                    deleteTask(currentTaskId);
+                    closeTaskDetailModal();
+                }
+            });
+
+            // 添加注意事项按钮点击事件
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.add-note-btn')) {
+                    addNoteInput();
+                }
+            });
+
+            // 查看更多建议按钮
+            document.getElementById('viewMoreTips').addEventListener('click', function() {
+                openAgentModal();
+                // 自动发送一条请求更多建议的消息
+                document.getElementById('agentInput').value = "请给我更多婚礼筹备建议";
+                sendAgentMessage();
+            });
+
+            // 编辑预算按钮
+            document.getElementById('editBudgetBtn').addEventListener('click', function() {
+                openBudgetModal();
+            });
+
+            // 关闭预算模态框
+            document.getElementById('closeBudgetModalBtn').addEventListener('click', function() {
+                closeBudgetModal();
+            });
+
+            // 保存预算按钮
+            document.getElementById('saveBudgetBtn').addEventListener('click', function() {
+                saveBudget();
+            });
+
+            // 预算项目输入变化时更新总分配
+            document.querySelectorAll('.budget-item').forEach(input => {
+                input.addEventListener('input', updateAllocatedBudget);
+            });
+
+            // 总预算输入变化时更新
+            document.getElementById('totalBudgetInput').addEventListener('input', updateAllocatedBudget);
+
+            // 全选任务
+            document.getElementById('selectAllTasks').addEventListener('change', function() {
+                const isChecked = this.checked;
+                document.querySelectorAll('.task-select-checkbox').forEach(checkbox => {
+                    checkbox.checked = isChecked;
+                });
+                updateSelectedCount();
+            });
+
+            // 批量标记完成
+            document.getElementById('batchCompleteBtn').addEventListener('click', function() {
+                batchUpdateTasks(true);
+            });
+
+            // 批量删除
+            document.getElementById('batchDeleteBtn').addEventListener('click', function() {
+                if (confirm('确定要删除选中的任务吗？所有子任务也将被删除。')) {
+                    batchDeleteTasks();
+                }
+            });
+
+            // 取消批量操作
+            document.getElementById('cancelBatchBtn').addEventListener('click', function() {
+                toggleBatchOperations(false);
+            });
+
+            // 任务选择框变化
+            document.addEventListener('change', function(e) {
+                if (e.target.classList.contains('task-select-checkbox')) {
+                    updateSelectedCount();
+                }
+                // 子任务复选框变化
+                else if (e.target.classList.contains('subtask-checkbox')) {
+                    const subtaskId = parseInt(e.target.getAttribute('data-subtask-id') || 0);
+                    const taskId = parseInt(e.target.getAttribute('data-task-id') || 0);
+                    if (!isNaN(subtaskId) && !isNaN(taskId)) {
+                        toggleSubtaskCompletion(taskId, subtaskId);
+                    }
+                }
+            });
+
+            // 子任务编辑和删除事件
+            document.addEventListener('click', function(e) {
+                // 编辑子任务
+                if (e.target.closest('.edit-subtask-btn')) {
+                    const subtaskId = parseInt(e.target.closest('.edit-subtask-btn').getAttribute('data-id') || 0);
+                    const taskId = currentTaskId;
+                    if (!isNaN(subtaskId) && taskId) {
+                        openEditSubtaskModal(subtaskId, taskId);
+                    }
+                }
+                // 删除子任务
+                else if (e.target.closest('.delete-subtask-btn')) {
+                    const subtaskId = parseInt(e.target.closest('.delete-subtask-btn').getAttribute('data-id') || 0);
+                    const taskId = currentTaskId;
+                    if (!isNaN(subtaskId) && taskId && confirm('确定要删除这个子任务吗？')) {
+                        deleteSubtask(taskId, subtaskId);
+                    }
+                }
+                // 编辑注意事项
+                else if (e.target.closest('.edit-note-btn')) {
+                    const noteIndex = parseInt(e.target.closest('.edit-note-btn').getAttribute('data-index') || 0);
+                    if (!isNaN(noteIndex)) {
+                        startEditingNote(noteIndex);
+                    }
+                }
+                // 删除注意事项
+                else if (e.target.closest('.delete-note-btn')) {
+                    const noteIndex = parseInt(e.target.closest('.delete-note-btn').getAttribute('data-index') || 0);
+                    if (!isNaN(noteIndex) && confirm('确定要删除这条注意事项吗？')) {
+                        deleteNote(noteIndex);
+                    }
+                }
+                // 添加新注意事项
+                else if (e.target.id === 'addNoteBtn') {
+                    addNewNote();
+                }
+                // 编辑字段按钮（预算、截止日期等）
+                else if (e.target.closest('.edit-btn')) {
+                    const field = e.target.closest('.edit-btn').getAttribute('data-field') || '';
+                    startEditingField(field);
+                }
+            });
+
+            // 保存编辑的字段
+            document.getElementById('saveBudgetEdit').addEventListener('click', function() {
+                saveEditedField('budget');
+            });
+            
+            document.getElementById('saveDueDateEdit').addEventListener('click', function() {
+                saveEditedField('dueDate');
+            });
+            
+            document.getElementById('saveDescriptionEdit').addEventListener('click', function() {
+                saveEditedField('description');
+            });
+
+            // 取消编辑字段
+            document.getElementById('cancelBudgetEdit').addEventListener('click', function() {
+                cancelEditingField('budget');
+            });
+            
+            document.getElementById('cancelDueDateEdit').addEventListener('click', function() {
+                cancelEditingField('dueDate');
+            });
+            
+            document.getElementById('cancelDescriptionEdit').addEventListener('click', function() {
+                cancelEditingField('description');
+            });
+
+            // 保存编辑的注意事项
+            document.addEventListener('click', function(e) {
+                if (e.target.id === 'saveNoteEdit') {
+                    saveNoteEdit();
+                } else if (e.target.id === 'cancelNoteEdit') {
+                    cancelNoteEdit();
+                }
+            });
+
+            // 打开日期设置模态框
+            document.getElementById('countdownBtn').addEventListener('click', function() {
+                openDateSettingModal();
+            });
+
+            document.getElementById('editWeddingDate').addEventListener('click', function() {
+                openDateSettingModal();
+            });
+
+            // 关闭日期设置模态框
+            document.getElementById('closeDateModalBtn').addEventListener('click', function() {
+                closeDateSettingModal();
+            });
+
+            // 保存婚礼日期
+            document.getElementById('saveDateBtn').addEventListener('click', function() {
+                saveWeddingDate();
+                generateAgentRecommendation();
+            });
+
+            // 任务完成状态变更
+            document.getElementById('modalTaskComplete').addEventListener('change', function() {
+                // 提供即时反馈，不等待点击保存按钮
+                const task = tasks.find(t => t.id === currentTaskId);
+                if (task) {
+                    const newCompletedState = this.checked;
+                    if (task.completed !== newCompletedState) {
+                        task.completed = newCompletedState;
+                        
+                        // 同时更新所有子任务的状态
+                        if (task.subtasks && task.subtasks.length > 0) {
+                            task.subtasks = task.subtasks.map(sub => ({...sub, completed: newCompletedState}));
+                        }
+                        
+                        task.lastUpdated = new Date().toISOString();
+                        renderSubtasksInDetailModal(task);
+                        document.getElementById('modalTaskLastUpdated').textContent = formatDateTime(task.lastUpdated);
+                        saveToLocalStorage();
+                        generateAgentRecommendation();
+                    }
+                }
+            });
+        }
+
+        // 开始编辑某个字段（预算、截止日期等）
+        function startEditingField(field) {
+            if (currentTaskId === null) return;
+            
+            const task = tasks.find(t => t.id === currentTaskId);
+            if (!task) return;
+            
+            // 隐藏显示区域，显示编辑区域
+            document.getElementById(`${field}EditContainer`).classList.remove('hidden');
+            
+            // 填充当前值，确保有默认值
+            switch(field) {
+                case 'budget':
+                    document.getElementById('editBudget').value = task.budget || 0;
+                    break;
+                case 'dueDate':
+                    document.getElementById('editDueDate').value = task.dueDate || new Date().toISOString().split('T')[0];
+                    break;
+                case 'description':
+                    document.getElementById('editDescription').value = task.description || '';
+                    break;
+            }
+        }
+
+        // 保存编辑的字段
+        function saveEditedField(field) {
+            if (currentTaskId === null) return;
+            
+            const task = tasks.find(t => t.id === currentTaskId);
+            if (!task) return;
+            
+            let newValue;
+            
+            // 获取新值并验证
+            switch(field) {
+                case 'budget':
+                    newValue = parseInt(document.getElementById('editBudget').value) || 0;
+                    task.budget = newValue;
+                    document.getElementById('modalTaskBudget').textContent = `¥${newValue}`;
+                    break;
+                case 'dueDate':
+                    newValue = document.getElementById('editDueDate').value;
+                    if (!newValue) {
+                        alert('请选择截止日期');
+                        return;
+                    }
+                    task.dueDate = newValue;
+                    document.getElementById('modalTaskDueDate').textContent = formatDate(newValue);
+                    break;
+                case 'description':
+                    newValue = document.getElementById('editDescription').value.trim();
+                    task.description = newValue;
+                    document.getElementById('modalTaskDescription').textContent = newValue || '无描述';
+                    break;
+            }
+            
+            // 更新最后修改时间
+            task.lastUpdated = new Date().toISOString();
+            document.getElementById('modalTaskLastUpdated').textContent = formatDateTime(task.lastUpdated);
+            
+            // 隐藏编辑区域
+            document.getElementById(`${field}EditContainer`).classList.add('hidden');
+            
+            // 保存并更新相关显示
+            filterAndRenderTasks();
+            updateBudgetDisplay();
+            generateAgentRecommendation();
+        }
+
+        // 取消编辑字段
+        function cancelEditingField(field) {
+            document.getElementById(`${field}EditContainer`).classList.add('hidden');
+        }
+
+        // 添加新的注意事项
+        function addNewNote() {
+            if (currentTaskId === null) return;
+            
+            const task = tasks.find(t => t.id === currentTaskId);
+            if (!task) return;
+            
+            // 确保notes数组存在
+            if (!task.notes) {
+                task.notes = [];
+            }
+            
+            // 添加一条空的注意事项并进入编辑模式
+            task.notes.push('');
+            renderNotesInDetailModal(task);
+            
+            // 自动进入最后一条注意事项的编辑模式
+            const lastIndex = task.notes.length - 1;
+            setTimeout(() => {
+                startEditingNote(lastIndex);
+            }, 100);
+            
+            // 更新最后修改时间
+            task.lastUpdated = new Date().toISOString();
+            document.getElementById('modalTaskLastUpdated').textContent = formatDateTime(task.lastUpdated);
+            saveToLocalStorage();
+        }
+
+        // 开始编辑注意事项
+        function startEditingNote(index) {
+            if (currentTaskId === null) return;
+            
+            const task = tasks.find(t => t.id === currentTaskId);
+            if (!task || !Array.isArray(task.notes) || index < 0 || index >= task.notes.length) return;
+            
+            // 隐藏所有注意事项的编辑状态
+            document.querySelectorAll('.note-edit-container').forEach(el => {
+                el.classList.add('hidden');
+            });
+            
+            // 显示当前注意事项的编辑框
+            const noteElement = document.querySelector(`.note-item[data-index="${index}"]`);
+            if (noteElement) {
+                const editContainer = noteElement.querySelector('.note-edit-container');
+                if (editContainer) {
+                    editContainer.classList.remove('hidden');
+                    const input = editContainer.querySelector('input');
+                    if (input) {
+                        input.value = task.notes[index] || '';
+                        input.focus();
+                    }
+                }
+            }
+        }
+
+        // 保存编辑的注意事项
+        function saveNoteEdit() {
+            if (currentTaskId === null) return;
+            
+            const task = tasks.find(t => t.id === currentTaskId);
+            if (!task || !Array.isArray(task.notes)) return;
+            
+            // 找到正在编辑的注意事项
+            const editContainer = document.querySelector('.note-edit-container:not(.hidden)');
+            if (!editContainer) return;
+            
+            const noteElement = editContainer.closest('.note-item');
+            if (!noteElement) return;
+            
+            const index = parseInt(noteElement.getAttribute('data-index') || '-1');
+            if (index < 0 || index >= task.notes.length) return;
+            
+            // 获取新值
+            const input = editContainer.querySelector('input');
+            const newValue = input.value.trim();
+            
+            // 更新并重新渲染
+            task.notes[index] = newValue;
+            renderNotesInDetailModal(task);
+            
+            // 更新最后修改时间
+            task.lastUpdated = new Date().toISOString();
+            document.getElementById('modalTaskLastUpdated').textContent = formatDateTime(task.lastUpdated);
+            saveToLocalStorage();
+        }
+
+        // 取消注意事项编辑
+        function cancelNoteEdit() {
+            document.querySelectorAll('.note-edit-container').forEach(el => {
+                el.classList.add('hidden');
+            });
+        }
+
+        // 删除注意事项
+        function deleteNote(index) {
+            if (currentTaskId === null) return;
+            
+            const task = tasks.find(t => t.id === currentTaskId);
+            if (!task || !Array.isArray(task.notes) || index < 0 || index >= task.notes.length) return;
+            
+            // 删除并重新渲染
+            task.notes.splice(index, 1);
+            renderNotesInDetailModal(task);
+            
+            // 更新最后修改时间
+            task.lastUpdated = new Date().toISOString();
+            document.getElementById('modalTaskLastUpdated').textContent = formatDateTime(task.lastUpdated);
+            saveToLocalStorage();
+        }
+
+        // 切换批量操作模式
+        function toggleBatchOperations(enable = null) {
+            const batchBar = document.getElementById('batchOperationsBar');
+            const isEnabled = batchBar.classList.contains('hidden') ? false : true;
+            const shouldEnable = enable !== null ? enable : !isEnabled;
+
+            if (shouldEnable) {
+                batchBar.classList.remove('hidden');
+                // 重新渲染任务以显示选择框
+                renderTasks(getFilteredTasks());
+                // 初始化选中计数
+                updateSelectedCount();
+            } else {
+                batchBar.classList.add('hidden');
+                // 取消全选
+                document.getElementById('selectAllTasks').checked = false;
+                // 重新渲染任务以隐藏选择框
+                renderTasks(getFilteredTasks());
+            }
+        }
+
+        // 更新选中任务计数
+        function updateSelectedCount() {
+            const checkedCount = document.querySelectorAll('.task-select-checkbox:checked').length;
+            document.getElementById('selectedCount').textContent = checkedCount;
+        }
+
+        // 批量更新任务状态
+        function batchUpdateTasks(completed) {
+            const checkedIds = Array.from(document.querySelectorAll('.task-select-checkbox:checked'))
+                .map(checkbox => parseInt(checkbox.getAttribute('data-id') || '0'))
+                .filter(id => !isNaN(id));
+            
+            tasks = tasks.map(task => {
+                if (checkedIds.includes(task.id)) {
+                    // 如果标记为完成，同时完成所有子任务
+                    let updatedSubtasks = task.subtasks || [];
+                    if (completed) {
+                        updatedSubtasks = updatedSubtasks.map(sub => ({...sub, completed: true}));
+                    }
+                    
+                    return { 
+                        ...task, 
+                        completed, 
+                        subtasks: updatedSubtasks,
+                        lastUpdated: new Date().toISOString() 
+                    };
+                }
+                return task;
+            });
+            
+            filterAndRenderTasks();
+            updateSelectedCount();
+            generateAgentRecommendation();
+        }
+
+        // 批量删除任务
+        function batchDeleteTasks() {
+            const checkedIds = Array.from(document.querySelectorAll('.task-select-checkbox:checked'))
+                .map(checkbox => parseInt(checkbox.getAttribute('data-id') || '0'))
+                .filter(id => !isNaN(id));
+            
+            tasks = tasks.filter(task => !checkedIds.includes(task.id));
+            
+            filterAndRenderTasks();
+            toggleBatchOperations(false);
+            generateAgentRecommendation();
+        }
+
+        // 设置排序方式
+        function setSortMethod(method) {
+            sortMethod = method || 'dueDate';
+            
+            if (method === 'manual') {
+                // 启用手动拖拽排序
+                enableManualSorting();
+            } else {
+                // 应用排序并重新渲染
+                filterAndRenderTasks();
+            }
+            
+            saveToLocalStorage();
+        }
+
+        // 启用手动拖拽排序
+        function enableManualSorting() {
+            filterAndRenderTasks();
+            
+            // 等待DOM更新后初始化Sortable
+            setTimeout(() => {
+                const container = document.getElementById('tasksContainer');
+                if (container) {
+                    new Sortable(container, {
+                        animation: 150,
+                        handle: '.task-handle',
+                        onEnd: function() {
+                            // 获取新的排序顺序
+                            const taskElements = container.querySelectorAll('[data-task-id]');
+                            const newOrderIds = Array.from(taskElements)
+                                .map(el => parseInt(el.getAttribute('data-task-id') || '0'))
+                                .filter(id => !isNaN(id));
+                            
+                            // 重新排序任务数组
+                            const newTaskOrder = [];
+                            newOrderIds.forEach(id => {
+                                const task = tasks.find(t => t.id === id);
+                                if (task) newTaskOrder.push(task);
+                            });
+                            
+                            // 添加未在可视列表中的任务到末尾
+                            tasks.forEach(task => {
+                                if (!newOrderIds.includes(task.id)) {
+                                    newTaskOrder.push(task);
+                                }
+                            });
+                            
+                            tasks = newTaskOrder;
+                            saveToLocalStorage();
+                        }
+                    });
+                }
+            }, 100);
+        }
+
+        // 打开排序选项模态框
+        function openSortOptionsModal() {
+            document.getElementById('sortOptionsModal').classList.remove('hidden');
+        }
+
+        // 关闭排序选项模态框
+        function closeSortOptionsModal() {
+            document.getElementById('sortOptionsModal').classList.add('hidden');
+        }
+
+        // 获取筛选后的任务
+        function getFilteredTasks() {
+            return tasks.filter(task => {
+                // 应用分类筛选
+                if (currentFilters.category !== 'all' && task.category !== currentFilters.category) {
+                    return false;
+                }
+                
+                // 应用优先级筛选
+                if (currentFilters.priority !== 'all' && task.priority !== currentFilters.priority) {
+                    return false;
+                }
+                
+                return true;
+            });
+        }
+
+        // 筛选并渲染任务
+        function filterAndRenderTasks() {
+            let filteredTasks = getFilteredTasks();
+            
+            // 应用排序
+            filteredTasks = sortTasks(filteredTasks);
+            
+            renderTasks(filteredTasks);
+        }
+
+        // 排序任务
+        function sortTasks(taskList) {
+            // 创建副本以避免修改原始数组
+            const sorted = [...taskList];
+            
+            switch (sortMethod) {
+                case 'dueDate':
+                    return sorted.sort((a, b) => {
+                        const dateA = new Date(a.dueDate || '');
+                        const dateB = new Date(b.dueDate || '');
+                        return dateA - dateB;
+                    });
+                case 'priority':
+                    // 优先级排序：高 > 中 > 低
+                    const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+                    return sorted.sort((a, b) => {
+                        const prioA = priorityOrder[a.priority || 'medium'];
+                        const prioB = priorityOrder[b.priority || 'medium'];
+                        return prioB - prioA;
+                    });
+                case 'category':
+                    return sorted.sort((a, b) => {
+                        const catA = a.category || '';
+                        const catB = b.category || '';
+                        return catA.localeCompare(catB);
+                    });
+                case 'completion':
+                    // 先显示未完成的，再显示已完成的
+                    return sorted.sort((a, b) => {
+                        if (a.completed && !b.completed) return 1;
+                        if (!a.completed && b.completed) return -1;
+                        return 0;
+                    });
+                case 'manual':
+                default:
+                    return sorted;
+            }
+        }
+
+        // 渲染任务列表
+        function renderTasks(filteredTasks = null) {
+            const container = document.getElementById('tasksContainer');
+            if (!container) return;
+            
+            container.innerHTML = '';
+
+            const tasksToRender = filteredTasks || tasks;
+            const inBatchMode = !document.getElementById('batchOperationsBar').classList.contains('hidden');
+            const isManualSort = sortMethod === 'manual';
+
+            if (tasksToRender.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-10 text-gray-500">
+                        <i class="fa fa-calendar-o text-4xl mb-3"></i>
+                        <p>没有找到任务</p>
+                        <p class="text-sm mt-1">点击右下角按钮添加新任务</p>
+                    </div>
+                `;
+                return;
+            }
+
+            tasksToRender.forEach(task => {
+                // 确保任务数据完整
+                const safeTask = ensureTaskIntegrity(task);
+                
+                // 计算子任务完成情况
+                const subtaskCount = safeTask.subtasks.length;
+                const completedSubtasks = safeTask.subtasks.filter(s => s.completed).length;
+                const subtaskProgress = subtaskCount > 0 ? `${completedSubtasks}/${subtaskCount}` : '';
+                
+                // 优先级样式映射
+                const priorityStyles = {
+                    'high': 'bg-high text-white',
+                    'medium': 'bg-medium text-dark',
+                    'low': 'bg-low text-white'
+                };
+                
+                const priorityTexts = {
+                    'high': '高',
+                    'medium': '中',
+                    'low': '低'
+                };
+
+                const taskElement = document.createElement('div');
+                taskElement.className = `bg-white rounded-xl shadow-sm p-4 transition-custom hover:shadow-md ${safeTask.completed ? 'opacity-70' : ''}`;
+                taskElement.setAttribute('data-task-id', safeTask.id);
+                
+                // 批量操作模式下显示选择框
+                const selectCheckbox = inBatchMode ? `
+                    <div class="mr-3 flex-shrink-0">
+                        <input type="checkbox" class="task-select-checkbox w-4 h-4 accent-primary" data-id="${safeTask.id}">
+                    </div>
+                ` : '';
+                
+                // 手动排序模式下显示拖拽手柄
+                const dragHandle = isManualSort ? `
+                    <div class="mr-3 text-gray-400 task-handle">
+                        <i class="fa fa-bars"></i>
+                    </div>
+                ` : '';
+
+                // 子任务进度显示
+                const subtaskIndicator = subtaskCount > 0 ? `
+                    <div class="text-xs text-gray-500 mt-1">
+                        <i class="fa fa-list-ul mr-1"></i> 子任务: ${subtaskProgress}
+                    </div>
+                ` : '';
+
+                taskElement.innerHTML = `
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-start flex-1">
+                            ${selectCheckbox}
+                            ${dragHandle}
+                            <div class="flex-1 mr-4">
+                                <div class="flex items-center">
+                                    <h3 class="font-semibold ${safeTask.completed ? 'line-through text-gray-500' : ''}">${safeTask.title}</h3>
+                                    <span class="ml-2 text-xs px-1.5 py-0.5 rounded-full ${priorityStyles[safeTask.priority]}">
+                                        ${priorityTexts[safeTask.priority]}
+                                    </span>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">${safeTask.categoryName} · 预算: ¥${safeTask.budget || 0}</p>
+                                ${subtaskIndicator}
+                                <p class="text-xs text-gray-400 mt-2">截止日期: ${formatDate(safeTask.dueDate)}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" class="sr-only peer task-checkbox" data-id="${safeTask.id}" ${safeTask.completed ? 'checked' : ''}>
+                                <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                            </label>
+                        </div>
+                    </div>
+                `;
+
+                // 点击任务项打开详情
+                taskElement.addEventListener('click', function(e) {
+                    // 批量模式下点击复选框或拖拽手柄不打开详情
+                    if (inBatchMode && (e.target.closest('.task-select-checkbox') || e.target.closest('.task-handle'))) {
+                        return;
+                    }
+                    
+                    // 点击复选框不打开详情
+                    if (!e.target.closest('.task-checkbox') && !e.target.closest('input[type="checkbox"]')) {
+                        openTaskDetailModal(safeTask.id);
+                    }
+                });
+
+                // 任务完成状态变更
+                const checkbox = taskElement.querySelector('.task-checkbox');
+                if (checkbox) {
+                    checkbox.addEventListener('change', function() {
+                        toggleTaskCompletion(safeTask.id);
+                    });
+                }
+
+                container.appendChild(taskElement);
+            });
+
+            updateProgress();
+            updateBudgetDisplay();
+            saveToLocalStorage();
+        }
+
+        // 更新任务完成状态
+        function toggleTaskCompletion(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                const newState = !task.completed;
+                task.completed = newState;
+                
+                // 如果标记为完成/未完成，同时更新所有子任务状态
+                if (task.subtasks && task.subtasks.length > 0) {
+                    task.subtasks = task.subtasks.map(sub => ({...sub, completed: newState}));
+                }
+                
+                task.lastUpdated = new Date().toISOString();
+                filterAndRenderTasks();
+                generateAgentRecommendation();
+            }
+        }
+
+        // 更新子任务完成状态
+        function toggleSubtaskCompletion(taskId, subtaskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task && Array.isArray(task.subtasks)) {
+                const subtask = task.subtasks.find(s => s.id === subtaskId);
+                if (subtask) {
+                    subtask.completed = !subtask.completed;
+                    task.lastUpdated = new Date().toISOString();
+                    
+                    // 检查所有子任务是否都已完成
+                    const allSubtasksCompleted = task.subtasks.every(s => s.completed);
+                    
+                    // 如果所有子任务都已完成，询问是否标记主任务为完成
+                    if (allSubtasksCompleted && !task.completed) {
+                        if (confirm('所有子任务都已完成，是否将主任务标记为完成？')) {
+                            task.completed = true;
+                        }
+                    }
+                    
+                    // 如果主任务已完成，但有子任务未完成，取消主任务的完成状态
+                    if (!allSubtasksCompleted && task.completed) {
+                        task.completed = false;
+                    }
+                    
+                    // 更新任务详情模态框中的子任务显示
+                    if (currentTaskId === taskId) {
+                        renderSubtasksInDetailModal(task);
+                        document.getElementById('modalTaskLastUpdated').textContent = formatDateTime(task.lastUpdated);
+                    }
+                    
+                    filterAndRenderTasks();
+                    generateAgentRecommendation();
+                }
+            }
+        }
+
+        // 打开任务详情模态框
+        function openTaskDetailModal(taskId) {
+            currentTaskId = taskId;
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            // 确保任务数据完整
+            const safeTask = ensureTaskIntegrity(task);
+
+            // 优先级样式和文本映射
+            const priorityStyles = {
+                'high': 'bg-high bg-opacity-20 text-high',
+                'medium': 'bg-medium bg-opacity-20 text-medium',
+                'low': 'bg-low bg-opacity-20 text-low'
+            };
+            
+            const priorityTexts = {
+                'high': '高优先级',
+                'medium': '中优先级',
+                'low': '低优先级'
+            };
+
+            document.getElementById('modalTaskTitle').textContent = safeTask.title;
+            document.getElementById('modalTaskCategory').textContent = safeTask.categoryName;
+            document.getElementById('modalTaskDescription').textContent = safeTask.description || '无描述';
+            document.getElementById('modalTaskDueDate').textContent = formatDate(safeTask.dueDate);
+            document.getElementById('modalTaskBudget').textContent = `¥${safeTask.budget || 0}`;
+            document.getElementById('modalTaskComplete').checked = safeTask.completed;
+            document.getElementById('modalTaskPriority').className = `text-xs px-2 py-0.5 rounded-full ${priorityStyles[safeTask.priority]}`;
+            document.getElementById('modalTaskPriority').textContent = priorityTexts[safeTask.priority];
+            
+            // 填充编辑字段的初始值
+            document.getElementById('editBudget').value = safeTask.budget || 0;
+            document.getElementById('editDueDate').value = safeTask.dueDate;
+            document.getElementById('editDescription').value = safeTask.description || '';
+            
+            // 格式化最后更新时间
+            if (safeTask.lastUpdated) {
+                document.getElementById('modalTaskLastUpdated').textContent = formatDateTime(safeTask.lastUpdated);
+            } else {
+                document.getElementById('modalTaskLastUpdated').textContent = '从未更新';
+            }
+
+            // 渲染注意事项
+            renderNotesInDetailModal(safeTask);
+
+            // 渲染子任务
+            renderSubtasksInDetailModal(safeTask);
+
+            document.getElementById('taskDetailModal').classList.remove('hidden');
+        }
+
+        // 渲染注意事项
+        function renderNotesInDetailModal(task) {
+            const container = document.getElementById('modalTaskNotes');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            // 确保notes属性存在
+            const safeNotes = Array.isArray(task.notes) ? task.notes : [];
+            
+            if (safeNotes.length === 0) {
+                container.innerHTML = `
+                    <li class="text-gray-400 italic">暂无注意事项，点击"添加"按钮添加</li>
+                `;
+                return;
+            }
+            
+            // 渲染每个注意事项
+            safeNotes.forEach((note, index) => {
+                const li = document.createElement('li');
+                li.className = 'note-item flex items-center justify-between p-1' + (note ? '' : ' text-gray-400 italic');
+                li.setAttribute('data-index', index);
+                
+                li.innerHTML = `
+                    <span class="note-text">${note || '点击编辑添加注意事项'}</span>
+                    <div class="note-actions flex space-x-1">
+                        <button class="edit-note-btn text-gray-400 hover:text-primary text-xs" data-index="${index}">
+                            <i class="fa fa-pencil"></i>
+                        </button>
+                        <button class="delete-note-btn text-gray-400 hover:text-red-500 text-xs" data-index="${index}">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    </div>
+                    <div class="note-edit-container hidden w-full mt-1">
+                        <input type="text" class="edit-mode-input" placeholder="输入注意事项...">
+                        <div class="flex justify-end mt-1 space-x-1">
+                            <button id="cancelNoteEdit" class="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">取消</button>
+                            <button id="saveNoteEdit" class="text-xs px-2 py-1 bg-primary text-white rounded hover:bg-secondary">保存</button>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(li);
+            });
+        }
+
+        // 在详情模态框中渲染子任务
+        function renderSubtasksInDetailModal(task) {
+            const container = document.getElementById('subtasksContainer');
+            const progressElement = document.getElementById('subtasksProgress');
+            if (!container || !progressElement) return;
+            
+            container.innerHTML = '';
+            
+            // 确保subtasks属性存在
+            const safeSubtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
+            
+            const subtaskCount = safeSubtasks.length;
+            const completedSubtasks = safeSubtasks.filter(s => s.completed).length;
+            
+            // 更新子任务进度
+            progressElement.textContent = subtaskCount > 0 ? 
+                `已完成 ${completedSubtasks}/${subtaskCount}` : '暂无子任务';
+            
+            if (subtaskCount === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-4 text-gray-500 text-sm">
+                        还没有子任务，点击下方按钮添加
+                    </div>
+                `;
+                return;
+            }
+            
+            // 渲染每个子任务
+            safeSubtasks.forEach(subtask => {
+                // 确保子任务数据完整
+                const safeSubtask = {
+                    id: subtask.id || Date.now(),
+                    title: subtask.title || '未命名子任务',
+                    completed: subtask.completed || false
+                };
+                
+                const subtaskElement = document.createElement('div');
+                subtaskElement.className = `flex items-center justify-between p-2 bg-gray-50 rounded-lg ${safeSubtask.completed ? 'opacity-70' : ''}`;
+                subtaskElement.innerHTML = `
+                    <div class="flex items-center flex-1">
+                        <input type="checkbox" class="subtask-checkbox w-4 h-4 accent-primary mr-2" 
+                               data-task-id="${task.id}" data-subtask-id="${safeSubtask.id}" 
+                               ${safeSubtask.completed ? 'checked' : ''}>
+                        <span class="text-sm ${safeSubtask.completed ? 'line-through text-gray-500' : ''}">${safeSubtask.title}</span>
+                    </div>
+                    <div class="flex space-x-1">
+                        <button class="edit-subtask-btn text-gray-400 hover:text-primary" data-id="${safeSubtask.id}">
+                            <i class="fa fa-pencil text-xs"></i>
+                        </button>
+                        <button class="delete-subtask-btn text-gray-400 hover:text-red-500" data-id="${safeSubtask.id}">
+                            <i class="fa fa-trash text-xs"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(subtaskElement);
+            });
+        }
+
+        // 关闭任务详情模态框
+        function closeTaskDetailModal() {
+            const modal = document.getElementById('taskDetailModal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+            // 隐藏所有编辑框
+            document.querySelectorAll('[id$="EditContainer"]').forEach(el => {
+                el.classList.add('hidden');
+            });
+            document.querySelectorAll('.note-edit-container').forEach(el => {
+                el.classList.add('hidden');
+            });
+            currentTaskId = null;
+            currentSubtaskId = null;
+        }
+
+        // 打开子任务编辑模态框
+        function openEditSubtaskModal(subtaskId = null, taskId) {
+            currentTaskId = taskId;
+            currentSubtaskId = subtaskId;
+            
+            // 重置表单
+            const form = document.getElementById('subtaskForm');
+            if (form) form.reset();
+            
+            document.getElementById('subtaskId').value = '';
+            document.getElementById('parentTaskId').value = taskId || '';
+            document.getElementById('editSubtaskModalTitle').textContent = '添加子任务';
+            
+            // 如果是编辑现有子任务
+            if (subtaskId && taskId) {
+                const task = tasks.find(t => t.id === taskId);
+                if (task && Array.isArray(task.subtasks)) {
+                    const subtask = task.subtasks.find(s => s.id === subtaskId);
+                    if (subtask) {
+                        document.getElementById('editSubtaskModalTitle').textContent = '编辑子任务';
+                        document.getElementById('subtaskId').value = subtask.id;
+                        document.getElementById('subtaskTitle').value = subtask.title || '';
+                        document.getElementById('subtaskComplete').checked = subtask.completed || false;
+                    }
+                }
+            }
+            
+            const modal = document.getElementById('editSubtaskModal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        // 关闭子任务编辑模态框
+        function closeEditSubtaskModal() {
+            const modal = document.getElementById('editSubtaskModal');
+            if (modal) modal.classList.add('hidden');
+            currentSubtaskId = null;
+        }
+
+        // 保存子任务
+        function saveSubtask() {
+            const subtaskId = document.getElementById('subtaskId').value;
+            const taskId = parseInt(document.getElementById('parentTaskId').value || '0');
+            const title = document.getElementById('subtaskTitle').value.trim() || '未命名子任务';
+            const completed = document.getElementById('subtaskComplete').checked || false;
+            
+            if (!taskId || taskId === 0) {
+                alert('找不到对应的任务');
+                return;
+            }
+            
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) {
+                alert('找不到对应的任务');
+                return;
+            }
+            
+            // 确保subtasks数组存在
+            if (!Array.isArray(task.subtasks)) {
+                task.subtasks = [];
+            }
+            
+            if (subtaskId) {
+                // 更新现有子任务
+                const index = task.subtasks.findIndex(s => s.id === parseInt(subtaskId));
+                if (index !== -1) {
+                    task.subtasks[index] = {
+                        ...task.subtasks[index],
+                        title,
+                        completed
+                    };
+                }
+            } else {
+                // 添加新子任务
+                const newSubtask = {
+                    id: Date.now(),
+                    title,
+                    completed
+                };
+                task.subtasks.push(newSubtask);
+            }
+            
+            // 更新最后修改时间
+            task.lastUpdated = new Date().toISOString();
+            
+            // 重新渲染任务详情中的子任务
+            if (currentTaskId === taskId) {
+                renderSubtasksInDetailModal(task);
+                document.getElementById('modalTaskLastUpdated').textContent = formatDateTime(task.lastUpdated);
+            }
+            
+            filterAndRenderTasks();
+            closeEditSubtaskModal();
+        }
+
+        // 删除子任务
+        function deleteSubtask(taskId, subtaskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task && Array.isArray(task.subtasks)) {
+                task.subtasks = task.subtasks.filter(s => s.id !== subtaskId);
+                task.lastUpdated = new Date().toISOString();
+                
+                // 如果主任务已完成，但删除了已完成的子任务，需要检查是否需要取消主任务的完成状态
+                if (task.completed && task.subtasks.length > 0) {
+                    const allSubtasksCompleted = task.subtasks.every(s => s.completed);
+                    if (!allSubtasksCompleted) {
+                        task.completed = false;
+                        const checkbox = document.getElementById('modalTaskComplete');
+                        if (checkbox) checkbox.checked = false;
+                    }
+                }
+                
+                // 重新渲染任务详情中的子任务
+                if (currentTaskId === taskId) {
+                    renderSubtasksInDetailModal(task);
+                    document.getElementById('modalTaskLastUpdated').textContent = formatDateTime(task.lastUpdated);
+                }
+                
+                filterAndRenderTasks();
+            }
+        }
+
+        // 更新任务完成状态（从详情模态框）
+        function updateTaskCompletion() {
+            // 这个函数现在主要作为备用，实际更新已在change事件中处理
+            closeTaskDetailModal();
+        }
+
+        // 打开编辑任务模态框
+        function openEditTaskModal(taskId = null) {
+            // 重置表单
+            const form = document.getElementById('taskForm');
+            if (form) form.reset();
+            
+            document.getElementById('taskId').value = '';
+            document.getElementById('taskLastUpdated').value = '';
+            document.getElementById('editModalTitle').textContent = '添加新任务';
+            document.getElementById('notesContainer').innerHTML = `
+                <div class="flex items-center">
+                    <input type="text" class="note-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" placeholder="添加注意事项...">
+                    <button type="button" class="add-note-btn ml-2 text-primary hover:text-secondary">
+                        <i class="fa fa-plus-circle"></i>
+                    </button>
+                </div>
+            `;
+
+            // 如果是编辑现有任务
+            if (taskId) {
+                currentTaskId = taskId;
+                const task = tasks.find(t => t.id === taskId);
+                if (task) {
+                    // 确保任务数据完整
+                    const safeTask = ensureTaskIntegrity(task);
+                    
+                    document.getElementById('editModalTitle').textContent = '编辑任务';
+                    document.getElementById('taskId').value = safeTask.id;
+                    document.getElementById('taskTitle').value = safeTask.title;
+                    document.getElementById('taskCategory').value = safeTask.category;
+                    document.getElementById('taskPriority').value = safeTask.priority || 'medium';
+                    document.getElementById('taskDescription').value = safeTask.description || '';
+                    document.getElementById('taskBudget').value = safeTask.budget || '';
+                    document.getElementById('taskDueDate').value = safeTask.dueDate;
+                    document.getElementById('taskComplete').checked = safeTask.completed;
+                    document.getElementById('taskLastUpdated').value = safeTask.lastUpdated || '';
+
+                    // 添加注意事项
+                    const notesContainer = document.getElementById('notesContainer');
+                    if (notesContainer) {
+                        notesContainer.innerHTML = '';
+                        
+                        (safeTask.notes || []).forEach((note, index) => {
+                            const noteDiv = document.createElement('div');
+                            noteDiv.className = 'flex items-center';
+                            noteDiv.innerHTML = `
+                                <input type="text" class="note-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" value="${note || ''}">
+                                <button type="button" class="remove-note-btn ml-2 text-gray-400 hover:text-red-500">
+                                    <i class="fa fa-minus-circle"></i>
+                                </button>
+                            `;
+                            notesContainer.appendChild(noteDiv);
+                            
+                            // 为删除按钮添加事件
+                            noteDiv.querySelector('.remove-note-btn').addEventListener('click', function() {
+                                if (notesContainer.children.length > 1) {
+                                    noteDiv.remove();
+                                }
+                            });
+                        });
+
+                        // 添加一个空的输入框
+                        addNoteInput();
+                    }
+                }
+            } else {
+                currentTaskId = null;
+                // 设置默认日期为今天
+                document.getElementById('taskDueDate').value = new Date().toISOString().split('T')[0];
+            }
+
+            const modal = document.getElementById('editTaskModal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        // 关闭编辑任务模态框
+        function closeEditTaskModal() {
+            const modal = document.getElementById('editTaskModal');
+            if (modal) modal.classList.add('hidden');
+            currentTaskId = null;
+        }
+
+        // 添加注意事项输入框
+        function addNoteInput() {
+            const notesContainer = document.getElementById('notesContainer');
+            if (!notesContainer) return;
+            
+            const noteDiv = document.createElement('div');
+            noteDiv.className = 'flex items-center';
+            noteDiv.innerHTML = `
+                <input type="text" class="note-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" placeholder="添加注意事项...">
+                <button type="button" class="remove-note-btn ml-2 text-gray-400 hover:text-red-500">
+                    <i class="fa fa-minus-circle"></i>
+                </button>
+            `;
+            notesContainer.appendChild(noteDiv);
+
+            // 为删除按钮添加事件
+            const removeBtn = noteDiv.querySelector('.remove-note-btn');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function() {
+                    if (notesContainer.children.length > 1) {
+                        noteDiv.remove();
+                    }
+                });
+            }
+        }
+
+        // 保存任务
+        function saveTask() {
+            const taskId = document.getElementById('taskId').value;
+            const title = document.getElementById('taskTitle').value.trim() || '未命名任务';
+            const category = document.getElementById('taskCategory').value || 'preparation';
+            const priority = document.getElementById('taskPriority').value || 'medium';
+            const description = document.getElementById('taskDescription').value.trim() || '';
+            const budget = parseInt(document.getElementById('taskBudget').value) || 0;
+            const dueDate = document.getElementById('taskDueDate').value || new Date().toISOString().split('T')[0];
+            const completed = document.getElementById('taskComplete').checked || false;
+            const lastUpdated = new Date().toISOString();
+
+            // 收集注意事项
+            const noteInputs = document.querySelectorAll('.note-input');
+            const notes = Array.from(noteInputs)
+                .map(input => input.value.trim())
+                .filter(note => note);
+
+            // 分类名称映射
+            const categoryNames = {
+                'preparation': '前期准备',
+                'ceremony': '婚礼当天',
+                'afterwards': '后续事宜'
+            };
+
+            if (taskId) {
+                // 更新现有任务
+                const index = tasks.findIndex(t => t.id === parseInt(taskId));
+                if (index !== -1) {
+                    // 保留子任务
+                    const existingSubtasks = Array.isArray(tasks[index].subtasks) ? tasks[index].subtasks : [];
+                    
+                    tasks[index] = {
+                        ...tasks[index],
+                        title,
+                        category,
+                        categoryName: categoryNames[category] || '前期准备',
+                        priority,
+                        description,
+                        budget,
+                        notes,
+                        subtasks: existingSubtasks,
+                        dueDate,
+                        completed,
+                        lastUpdated
+                    };
+                }
+            } else {
+                // 添加新任务（包含空的子任务数组）
+                const newTask = {
+                    id: Date.now(), // 使用时间戳作为唯一ID
+                    title,
+                    category,
+                    categoryName: categoryNames[category] || '前期准备',
+                    priority,
+                    description,
+                    budget,
+                    notes,
+                    subtasks: [],
+                    dueDate,
+                    completed,
+                    lastUpdated
+                };
+                tasks.unshift(newTask); // 添加到数组开头
+            }
+
+            filterAndRenderTasks();
+            closeEditTaskModal();
+            generateAgentRecommendation();
+        }
+
+        // 删除任务
+        function deleteTask(taskId) {
+            tasks = tasks.filter(task => task.id !== taskId);
+            filterAndRenderTasks();
+            generateAgentRecommendation();
+        }
+
+        // 打开批量添加模态框
+        function openBatchAddModal() {
+            const textarea = document.getElementById('markdownTasks');
+            if (textarea) textarea.value = '';
+            
+            const resultElement = document.getElementById('batchImportResult');
+            if (resultElement) resultElement.classList.add('hidden');
+            
+            const modal = document.getElementById('batchAddModal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        // 关闭批量添加模态框
+        function closeBatchAddModal() {
+            const modal = document.getElementById('batchAddModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        // 从Markdown导入任务（支持子任务）
+        function importTasksFromMarkdown() {
+            const textarea = document.getElementById('markdownTasks');
+            if (!textarea) return;
+            
+            const markdown = textarea.value.trim();
+            if (!markdown) {
+                showBatchImportResult('请输入任务内容', 'error');
+                return;
+            }
+
+            try {
+                const newTasks = parseMarkdownToTasks(markdown);
+                if (newTasks.length === 0) {
+                    showBatchImportResult('未解析到任何任务，请检查格式', 'error');
+                    return;
+                }
+
+                // 添加新任务
+                newTasks.forEach(task => {
+                    tasks.unshift(task);
+                });
+
+                filterAndRenderTasks();
+                showBatchImportResult(`成功导入 ${newTasks.length} 个任务`, 'success');
+                generateAgentRecommendation();
+                
+                // 3秒后自动关闭模态框
+                setTimeout(() => {
+                    closeBatchAddModal();
+                }, 3000);
+            } catch (error) {
+                showBatchImportResult(`导入失败: ${error.message || '未知错误'}`, 'error');
+            }
+        }
+
+        // 显示批量导入结果
+        function showBatchImportResult(message, type) {
+            const resultElement = document.getElementById('batchImportResult');
+            if (!resultElement) return;
+            
+            resultElement.textContent = message || '操作完成';
+            resultElement.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
+            
+            if (type === 'success') {
+                resultElement.classList.add('bg-green-100', 'text-green-800');
+            } else {
+                resultElement.classList.add('bg-red-100', 'text-red-800');
+            }
+        }
+
+        // 解析Markdown文本为任务数组（支持子任务）
+        function parseMarkdownToTasks(markdown) {
+            const tasks = [];
+            const lines = markdown.split('\n');
+            
+            let currentTask = null;
+            let inSubtasks = false; // 是否正在解析子任务
+            const categoryMap = {
+                '前期准备': 'preparation',
+                '婚礼当天': 'ceremony',
+                '后续事宜': 'afterwards'
+            };
+            
+            const priorityMap = {
+                '高': 'high',
+                '中': 'medium',
+                '低': 'low'
+            };
+
+            for (let line of lines) {
+                line = line.trim();
+                
+                // 新任务开始（以#开头）
+                if (line.startsWith('# ')) {
+                    // 如果有当前任务，先保存
+                    if (currentTask) {
+                        validateTask(currentTask);
+                        tasks.push(currentTask);
+                    }
+                    
+                    // 重置子任务标记
+                    inSubtasks = false;
+                    
+                    // 创建新任务
+                    currentTask = {
+                        id: Date.now() + Math.floor(Math.random() * 1000), // 确保ID唯一
+                        title: line.substring(2).trim() || '未命名任务',
+                        category: '',
+                        categoryName: '',
+                        priority: 'medium', // 默认中优先级
+                        description: '',
+                        budget: 0,
+                        notes: [],
+                        subtasks: [], // 初始化子任务数组
+                        dueDate: '',
+                        completed: false,
+                        lastUpdated: new Date().toISOString()
+                    };
+                } 
+                // 任务描述
+                else if (currentTask && line.startsWith('描述：')) {
+                    currentTask.description = line.substring(3).trim();
+                    inSubtasks = false;
+                } 
+                // 任务分类
+                else if (currentTask && line.startsWith('分类：')) {
+                    const categoryName = line.substring(3).trim();
+                    currentTask.categoryName = categoryName || '前期准备';
+                    currentTask.category = categoryMap[categoryName] || 'preparation'; // 默认前期准备
+                    inSubtasks = false;
+                } 
+                // 优先级
+                else if (currentTask && line.startsWith('优先级：')) {
+                    const priorityText = line.substring(4).trim();
+                    currentTask.priority = priorityMap[priorityText] || 'medium';
+                    inSubtasks = false;
+                }
+                // 预算
+                else if (currentTask && line.startsWith('预算：')) {
+                    currentTask.budget = parseInt(line.substring(3).trim()) || 0;
+                    inSubtasks = false;
+                }
+                // 截止日期
+                else if (currentTask && line.startsWith('截止日期：')) {
+                    currentTask.dueDate = line.substring(5).trim();
+                    inSubtasks = false;
+                } 
+                // 注意事项开始
+                else if (currentTask && line.startsWith('注意事项：')) {
+                    inSubtasks = false;
+                } 
+                // 注意事项列表项
+                else if (currentTask && !inSubtasks && (line.startsWith('- ') || line.startsWith('* '))) {
+                    const note = line.substring(2).trim();
+                    if (note) {
+                        currentTask.notes.push(note);
+                    }
+                }
+                // 子任务开始
+                else if (currentTask && line.startsWith('子任务：')) {
+                    inSubtasks = true;
+                }
+                // 子任务列表项（以--开头）
+                else if (currentTask && inSubtasks && line.startsWith('-- ')) {
+                    const subtaskTitle = line.substring(3).trim() || '未命名子任务';
+                    currentTask.subtasks.push({
+                        id: Date.now() + Math.floor(Math.random() * 1000),
+                        title: subtaskTitle,
+                        completed: false
+                    });
+                }
+            }
+            
+            // 添加最后一个任务
+            if (currentTask) {
+                validateTask(currentTask);
+                tasks.push(currentTask);
+            }
+            
+            return tasks;
+        }
+
+        // 验证任务是否完整
+        function validateTask(task) {
+            // 设置默认截止日期为今天
+            if (!task.dueDate) {
+                task.dueDate = new Date().toISOString().split('T')[0];
+            }
+            
+            // 验证日期格式
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(task.dueDate)) {
+                throw new Error(`任务"${task.title || '未命名任务'}"的日期格式不正确，请使用YYYY-MM-DD格式`);
+            }
+            
+            // 验证分类
+            if (!task.category) {
+                task.category = 'preparation';
+                task.categoryName = '前期准备';
+            }
+            
+            // 确保子任务数组存在
+            if (!Array.isArray(task.subtasks)) {
+                task.subtasks = [];
+            }
+            
+            // 确保注意事项数组存在
+            if (!Array.isArray(task.notes)) {
+                task.notes = [];
+            }
+        }
+
+        // 打开智能助手模态框
+        function openAgentModal() {
+            const modal = document.getElementById('agentModal');
+            if (modal) modal.classList.remove('hidden');
+            
+            const input = document.getElementById('agentInput');
+            if (input) input.focus();
+        }
+
+        // 关闭智能助手模态框
+        function closeAgentModal() {
+            const modal = document.getElementById('agentModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        // 发送智能助手消息
+        function sendAgentMessage() {
+            const input = document.getElementById('agentInput');
+            if (!input) return;
+            
+            const message = input.value.trim();
+            if (!message) return;
+            
+            // 添加用户消息到聊天记录
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                const userMessageHtml = `
+                    <div class="flex justify-end">
+                        <div class="user-bubble bg-secondary text-white px-4 py-2 max-w-[80%]">
+                            <p class="text-sm">${message}</p>
+                        </div>
+                    </div>
+                `;
+                chatMessages.innerHTML += userMessageHtml;
+            }
+            
+            // 清空输入框
+            input.value = '';
+            
+            // 滚动到底部
+            const chatContainer = document.getElementById('chatMessages');
+            if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+            
+            // 模拟思考延迟
+            setTimeout(() => {
+                // 生成智能回复
+                const response = generateAgentResponse(message);
+                
+                // 添加智能助手回复到聊天记录
+                if (chatMessages) {
+                    const agentMessageHtml = `
+                        <div class="flex">
+                            <div class="bg-agent rounded-full w-6 h-6 flex items-center justify-center text-white mr-2 flex-shrink-0 mt-1">
+                                <i class="fa fa-robot text-xs"></i>
+                            </div>
+                            <div class="agent-bubble bg-agent bg-opacity-20 px-4 py-2 max-w-[80%]">
+                                <p class="text-sm">${response}</p>
+                            </div>
+                        </div>
+                    `;
+                    chatMessages.innerHTML += agentMessageHtml;
+                    
+                    // 滚动到底部
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+            }, 800);
+        }
+
+        // 生成智能助手回复
+        function generateAgentResponse(message) {
+            if (!message) return agentResponses["default"];
+            
+            const lowerMessage = message.toLowerCase();
+            
+            // 检查关键词，返回相应的预设回答
+            if (lowerMessage.includes('预算') || lowerMessage.includes('钱') || lowerMessage.includes('花费')) {
+                return agentResponses["预算"];
+            } else if (lowerMessage.includes('修改预算')) {
+                return agentResponses["修改预算"];
+            } else if (lowerMessage.includes('截止时间') || lowerMessage.includes('日期')) {
+                return agentResponses["截止时间"];
+            } else if (lowerMessage.includes('注意事项')) {
+                return agentResponses["注意事项"];
+            } else if (lowerMessage.includes('时间') || lowerMessage.includes('提前') || lowerMessage.includes('准备')) {
+                return agentResponses["准备时间"];
+            } else if (lowerMessage.includes('场地') || lowerMessage.includes('酒店') || lowerMessage.includes('地点')) {
+                return agentResponses["场地推荐"];
+            } else if (lowerMessage.includes('婚纱') || lowerMessage.includes('礼服') || lowerMessage.includes('服装')) {
+                return agentResponses["婚纱选择"];
+            } else if (lowerMessage.includes('流程') || lowerMessage.includes('环节') || lowerMessage.includes('步骤')) {
+                return agentResponses["流程"];
+            } else if (lowerMessage.includes('宾客') || lowerMessage.includes('名单') || lowerMessage.includes('邀请')) {
+                return agentResponses["宾客名单"];
+            } else if (lowerMessage.includes('修改') || lowerMessage.includes('编辑') || lowerMessage.includes('更新')) {
+                return agentResponses["修改任务"];
+            } else if (lowerMessage.includes('优先级') || lowerMessage.includes('重要') || lowerMessage.includes('紧急')) {
+                return agentResponses["优先级"];
+            } else if (lowerMessage.includes('子任务') || lowerMessage.includes('小任务')) {
+                return agentResponses["子任务"];
+            } else if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('你好')) {
+                return agentResponses["hello"];
+            } else {
+                // 如果没有匹配的关键词，返回默认回答
+                return agentResponses["default"];
+            }
+        }
+
+        // 生成智能助手推荐
+        function generateAgentRecommendation() {
+            const wedding = new Date(weddingDate);
+            const now = new Date();
+            const daysLeft = Math.ceil((wedding - now) / (1000 * 60 * 60 * 24));
+            
+            // 找出即将到期的未完成高优先级任务
+            const upcomingTasks = tasks
+                .filter(task => !task.completed && task.priority === 'high')
+                .map(task => {
+                    const due = new Date(task.dueDate || '');
+                    const daysToDue = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+                    
+                    // 计算未完成的子任务数量
+                    const incompleteSubtasks = Array.isArray(task.subtasks) ? 
+                        task.subtasks.filter(s => !s.completed).length : 0;
+                        
+                    return { ...task, daysToDue, incompleteSubtasks };
+                })
+                .sort((a, b) => {
+                    // 先按剩余天数排序，再按未完成子任务数量排序
+                    if (a.daysToDue !== b.daysToDue) {
+                        return a.daysToDue - b.daysToDue;
+                    }
+                    return b.incompleteSubtasks - a.incompleteSubtasks;
+                })
+                .filter(task => task.daysToDue <= 14); // 14天内到期的高优先级任务
+            
+            // 根据时间和完成情况生成推荐
+            let recommendation = "";
+            
+            if (upcomingTasks.length > 0) {
+                const soonestTask = upcomingTasks[0];
+                const subtaskInfo = soonestTask.incompleteSubtasks > 0 ? 
+                    `，其中有${soonestTask.incompleteSubtasks}个子任务未完成` : "";
+                    
+                recommendation = `您有 ${upcomingTasks.length} 个高优先级任务即将到期，其中${soonestTask.title}还有${soonestTask.daysToDue}天截止${subtaskInfo}，请优先完成。`;
+            } else if (daysLeft > 180) { // 6个月以上
+                recommendation = "距离您的婚礼还有半年多时间，建议先确定婚礼日期和预算，开始初步了解场地和婚庆公司。";
+            } else if (daysLeft > 90) { // 3-6个月
+                recommendation = "距离您的婚礼还有3-6个月，建议尽快预订婚礼场地和婚庆公司，确定婚礼风格和大致流程。";
+            } else if (daysLeft > 30) { // 1-3个月
+                recommendation = "距离您的婚礼还有1-3个月，需要确认宾客名单、预订婚纱礼服、联系摄影摄像团队等细节。";
+            } else { // 1个月以内
+                recommendation = "婚礼即将举行，建议进行流程彩排，确认所有细节，准备好所需物品，放松心情等待美好时刻！";
+            }
+            
+            const recommendationElement = document.getElementById('agentRecommendation');
+            if (recommendationElement) {
+                recommendationElement.textContent = recommendation;
+            }
+        }
+
+        // 打开预算模态框
+        function openBudgetModal() {
+            const input = document.getElementById('totalBudgetInput');
+            if (input) input.value = budgetData.total || '';
+            
+            // 填充预算项目
+            const budgetItems = document.querySelectorAll('.budget-item');
+            const itemLabels = ["场地费用", "餐饮服务", "婚纱礼服", "摄影摄像", "婚庆服务", "其他费用"];
+            
+            budgetItems.forEach((input, index) => {
+                if (input && itemLabels[index]) {
+                    input.value = budgetData.items[itemLabels[index]] || '';
+                }
+            });
+            
+            updateAllocatedBudget();
+            
+            const modal = document.getElementById('budgetModal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        // 关闭预算模态框
+        function closeBudgetModal() {
+            const modal = document.getElementById('budgetModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        // 更新已分配预算
+        function updateAllocatedBudget() {
+            const totalBudget = parseInt(document.getElementById('totalBudgetInput').value || '0');
+            const budgetItems = document.querySelectorAll('.budget-item');
+            
+            let allocated = 0;
+            budgetItems.forEach(input => {
+                if (input) {
+                    allocated += parseInt(input.value || '0');
+                }
+            });
+            
+            const allocatedElement = document.getElementById('allocatedBudget');
+            if (allocatedElement) {
+                allocatedElement.textContent = `¥${allocated}`;
+            }
+            
+            const percentage = totalBudget > 0 ? (allocated / totalBudget) * 100 : 0;
+            const bar = document.getElementById('allocatedBudgetBar');
+            if (bar) {
+                bar.style.width = `${percentage}%`;
+            }
+        }
+
+        // 保存预算设置
+        function saveBudget() {
+            const totalBudget = parseInt(document.getElementById('totalBudgetInput').value || '0');
+            const budgetItems = document.querySelectorAll('.budget-item');
+            const itemLabels = ["场地费用", "餐饮服务", "婚纱礼服", "摄影摄像", "婚庆服务", "其他费用"];
+            
+            budgetData.total = totalBudget;
+            
+            budgetItems.forEach((input, index) => {
+                if (input && itemLabels[index]) {
+                    budgetData.items[itemLabels[index]] = parseInt(input.value || '0');
+                }
+            });
+            
+            updateBudgetDisplay();
+            saveToLocalStorage();
+            closeBudgetModal();
+        }
+
+        // 更新预算显示
+        function updateBudgetDisplay() {
+            const totalElement = document.getElementById('totalBudget');
+            if (totalElement) {
+                totalElement.textContent = `¥${budgetData.total || 0}`;
+            }
+            
+            // 计算已花费金额（已完成任务的预算总和）
+            const spent = tasks
+                .filter(task => task.completed)
+                .reduce((sum, task) => sum + (task.budget || 0), 0);
+            
+            const spentElement = document.getElementById('spentBudget');
+            if (spentElement) {
+                spentElement.textContent = `¥${spent}`;
+            }
+            
+            const percentage = budgetData.total > 0 ? (spent / budgetData.total) * 100 : 0;
+            const bar = document.getElementById('budgetBar');
+            if (bar) {
+                bar.style.width = `${percentage}%`;
+            }
+        }
+
+        // 打开日期设置模态框
+        function openDateSettingModal() {
+            const input = document.getElementById('weddingDate');
+            if (input) input.value = weddingDate || '';
+            
+            const modal = document.getElementById('dateSettingModal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        // 关闭日期设置模态框
+        function closeDateSettingModal() {
+            const modal = document.getElementById('dateSettingModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        // 保存婚礼日期
+        function saveWeddingDate() {
+            const input = document.getElementById('weddingDate');
+            if (!input) return;
+            
+            const date = input.value;
+            if (date) {
+                weddingDate = date;
+                localStorage.setItem('weddingDate', weddingDate);
+                startCountdown();
+                closeDateSettingModal();
+            } else {
+                alert('请选择婚礼日期');
+            }
+        }
+
+        // 开始倒计时
+        function startCountdown() {
+            updateCountdown();
+            setInterval(updateCountdown, 1000);
+        }
+
+        // 更新倒计时
+        function updateCountdown() {
+            const wedding = new Date(weddingDate);
+            const now = new Date();
+            const diff = wedding - now;
+
+            let days = 0, hours = 0, minutes = 0, seconds = 0;
+            
+            if (diff > 0) {
+                days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            }
+
+            // 确保元素存在再更新
+            const daysElement = document.getElementById('days');
+            if (daysElement) {
+                daysElement.querySelector('span:first-child').textContent = days.toString().padStart(2, '0');
+            }
+            
+            const hoursElement = document.getElementById('hours');
+            if (hoursElement) {
+                hoursElement.querySelector('span:first-child').textContent = hours.toString().padStart(2, '0');
+            }
+            
+            const minutesElement = document.getElementById('minutes');
+            if (minutesElement) {
+                minutesElement.querySelector('span:first-child').textContent = minutes.toString().padStart(2, '0');
+            }
+            
+            const secondsElement = document.getElementById('seconds');
+            if (secondsElement) {
+                secondsElement.querySelector('span:first-child').textContent = seconds.toString().padStart(2, '0');
+            }
+        }
+
+        // 格式化日期显示
+        function formatDate(dateString) {
+            if (!dateString) return '未设置日期';
+            
+            const date = new Date(dateString);
+            // 检查日期是否有效
+            if (isNaN(date.getTime())) {
+                return '日期无效';
+            }
+            
+            return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+        }
+
+        // 格式化日期时间显示
+        function formatDateTime(dateString) {
+            if (!dateString) return '从未更新';
+            
+            const date = new Date(dateString);
+            // 检查日期是否有效
+            if (isNaN(date.getTime())) {
+                return '时间无效';
+            }
+            
+            return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+        }
+
+        // 更新进度统计（考虑子任务）
+        function updateProgress() {
+            // 计算主任务总数和已完成数
+            const totalMainTasks = tasks.length;
+            const completedMainTasks = tasks.filter(task => task.completed).length;
+            
+            // 计算所有子任务总数和已完成数
+            let totalSubtasks = 0;
+            let completedSubtasks = 0;
+            
+            tasks.forEach(task => {
+                if (Array.isArray(task.subtasks) && task.subtasks.length > 0) {
+                    totalSubtasks += task.subtasks.length;
+                    completedSubtasks += task.subtasks.filter(s => s.completed).length;
+                }
+            });
+            
+            // 总体进度计算：主任务和子任务的加权平均
+            const totalTasks = totalMainTasks + totalSubtasks;
+            const completedTasks = completedMainTasks + completedSubtasks;
+            const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+            // 更新总体进度显示
+            const totalTasksElement = document.getElementById('totalTasks');
+            if (totalTasksElement) totalTasksElement.textContent = totalTasks;
+            
+            const completedTasksElement = document.getElementById('completedTasks');
+            if (completedTasksElement) completedTasksElement.textContent = completedTasks;
+            
+            const progressBar = document.getElementById('progressBar');
+            if (progressBar) progressBar.style.width = `${progress}%`;
+
+            // 分类进度（同样考虑子任务）
+            const preparationTasks = tasks.filter(t => t.category === 'preparation');
+            let preparationTotal = preparationTasks.length;
+            let preparationCompleted = preparationTasks.filter(t => t.completed).length;
+            
+            preparationTasks.forEach(task => {
+                if (Array.isArray(task.subtasks) && task.subtasks.length > 0) {
+                    preparationTotal += task.subtasks.length;
+                    preparationCompleted += task.subtasks.filter(s => s.completed).length;
+                }
+            });
+            
+            const preparationElement = document.getElementById('preparationProgress');
+            if (preparationElement) preparationElement.textContent = `${preparationCompleted}/${preparationTotal}`;
+
+            const ceremonyTasks = tasks.filter(t => t.category === 'ceremony');
+            let ceremonyTotal = ceremonyTasks.length;
+            let ceremonyCompleted = ceremonyTasks.filter(t => t.completed).length;
+            
+            ceremonyTasks.forEach(task => {
+                if (Array.isArray(task.subtasks) && task.subtasks.length > 0) {
+                    ceremonyTotal += task.subtasks.length;
+                    ceremonyCompleted += task.subtasks.filter(s => s.completed).length;
+                }
+            });
+            
+            const ceremonyElement = document.getElementById('ceremonyProgress');
+            if (ceremonyElement) ceremonyElement.textContent = `${ceremonyCompleted}/${ceremonyTotal}`;
+
+            const afterwardsTasks = tasks.filter(t => t.category === 'afterwards');
+            let afterwardsTotal = afterwardsTasks.length;
+            let afterwardsCompleted = afterwardsTasks.filter(t => t.completed).length;
+            
+            afterwardsTasks.forEach(task => {
+                if (Array.isArray(task.subtasks) && task.subtasks.length > 0) {
+                    afterwardsTotal += task.subtasks.length;
+                    afterwardsCompleted += task.subtasks.filter(s => s.completed).length;
+                }
+            });
+            
+            const afterwardsElement = document.getElementById('afterwardsProgress');
+            if (afterwardsElement) afterwardsElement.textContent = `${afterwardsCompleted}/${afterwardsTotal}`;
+        }
+    </script>
+</body>
+</html>
+    

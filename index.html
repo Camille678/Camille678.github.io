@@ -1,0 +1,1911 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>技能学习追踪器</title>
+    <!-- 引入Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- 引入Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <!-- 引入SheetJS库用于Excel导出 -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
+    <!-- Tailwind配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6', // 主色调
+                            700: '#1d4ed8',
+                            900: '#1e3a8a'
+                        },
+                        secondary: {
+                            50: '#f0fdf4',
+                            500: '#10b981', // 辅助色
+                            700: '#059669'
+                        },
+                        accent: '#F59E0B',
+                        dark: '#1E293B',
+                        light: '#F8FAFC'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    backgroundImage: {
+                        'gradient-primary': 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                        'gradient-secondary': 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            }
+            .btn-hover {
+                @apply transition-all duration-300 hover:shadow-lg transform hover:-translate-y-0.5;
+            }
+            .skill-card {
+                @apply bg-white rounded-xl p-5 card-shadow transition-all duration-300 hover:shadow-xl;
+            }
+            .timer-display {
+                @apply text-4xl font-bold text-center my-4 tracking-wider;
+            }
+            .card-hover {
+                @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+            }
+            .btn-effect {
+                @apply transition-all duration-200 hover:shadow-md active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-500/50;
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-in-out;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .progress-animation {
+                transition: width 1s ease-in-out;
+            }
+            .text-balance {
+                text-wrap: balance;
+            }
+            .title-lg {
+                @apply text-[clamp(1.75rem,4vw,2.5rem)] font-bold tracking-tight;
+            }
+            .title-md {
+                @apply text-[clamp(1.25rem,3vw,1.75rem)] font-semibold;
+            }
+            .body-text {
+                @apply text-gray-700 leading-relaxed;
+            }
+            .markdown-hint {
+                @apply text-xs text-gray-500 mt-1 bg-gray-50 p-2 rounded text-left font-mono;
+            }
+            .user-avatar {
+                @apply w-10 h-10 rounded-full object-cover border-2 border-primary-500;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen transition-colors duration-300">
+    <!-- 顶部导航栏 -->
+    <header class="bg-white shadow-md sticky top-0 z-50 transition-all duration-300">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-graduation-cap text-primary-500 text-2xl"></i>
+                <h1 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-dark">技能学习追踪器</h1>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button id="sync-data" class="bg-blue-600 text-white py-2 px-4 rounded-lg btn-effect flex items-center">
+                    <i class="fa fa-sync mr-2"></i>同步数据
+                </button>
+                <button id="export-data" class="bg-green-600 text-white py-2 px-4 rounded-lg btn-effect flex items-center">
+                    <i class="fa fa-download mr-2"></i>导出数据
+                </button>
+                <div class="relative" id="user-menu-container">
+                    <button id="user-menu-button" class="flex items-center space-x-2 focus:outline-none">
+                        <img id="user-avatar" src="https://picsum.photos/200/200?random=1" alt="用户头像" class="user-avatar">
+                        <span id="user-display-name" class="hidden md:inline-block font-medium">游客</span>
+                        <i class="fa fa-chevron-down text-xs text-gray-500"></i>
+                    </button>
+                    <div id="user-dropdown-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
+                        <a href="#" id="edit-user-profile" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="fa fa-user-circle mr-2"></i>编辑资料
+                        </a>
+                        <a href="#" id="import-user-data" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="fa fa-upload mr-2"></i>导入数据
+                        </a>
+                        <a href="#" id="reset-user-data" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                            <i class="fa fa-trash mr-2"></i>重置所有数据
+                        </a>
+                    </div>
+                </div>
+                <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                    <i class="fa fa-moon-o text-dark"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- 用户信息概览（首次使用或新用户时显示） -->
+        <section id="user-welcome-section" class="mb-10 hidden">
+            <div class="bg-gradient-primary text-white rounded-xl p-6 card-shadow fade-in">
+                <div class="flex flex-col md:flex-row items-center justify-between">
+                    <div class="mb-4 md:mb-0">
+                        <h2 class="text-2xl font-bold">欢迎使用技能学习追踪器！</h2>
+                        <p class="mt-2 opacity-90">请完善您的个人信息，开始记录您的学习旅程</p>
+                    </div>
+                    <button id="complete-profile-btn" class="bg-white text-primary-700 py-2 px-6 rounded-lg btn-effect font-medium">
+                        完善资料
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 统计概览 -->
+        <section class="mb-10">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white rounded-xl p-6 card-shadow card-hover fade-in">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-gray-500 mb-1">总技能数</p>
+                            <h2 id="total-skills" class="text-3xl font-bold text-primary-500">0</h2>
+                        </div>
+                        <div class="bg-primary-100 p-3 rounded-lg">
+                            <i class="fa fa-list-ul text-primary-500 text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl p-6 card-shadow card-hover fade-in" style="animation-delay: 0.1s">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-gray-500 mb-1">总学习时间</p>
+                            <h2 id="total-hours" class="text-3xl font-bold text-secondary-500">0小时</h2>
+                        </div>
+                        <div class="bg-secondary-100 p-3 rounded-lg">
+                            <i class="fa fa-clock-o text-secondary-500 text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl p-6 card-shadow card-hover fade-in" style="animation-delay: 0.2s">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-gray-500 mb-1">未完成任务</p>
+                            <h2 id="pending-tasks" class="text-3xl font-bold text-accent">0项</h2>
+                        </div>
+                        <div class="bg-amber-100 p-3 rounded-lg">
+                            <i class="fa fa-tasks text-accent text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 添加新技能 -->
+        <section class="mb-10">
+            <div class="bg-white rounded-xl p-6 card-shadow">
+                <h2 class="text-xl font-bold mb-4 flex items-center">
+                    <i class="fa fa-plus-circle text-primary-500 mr-2"></i>添加新技能
+                </h2>
+                <form id="add-skill-form" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="md:col-span-2">
+                        <label for="skill-name" class="block text-gray-700 mb-1">技能名称</label>
+                        <input type="text" id="skill-name" placeholder="例如：Python编程、英语听力..." 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all">
+                    </div>
+                    <div class="md:col-span-1">
+                        <label for="skill-target" class="block text-gray-700 mb-1">目标学习时长（小时）</label>
+                        <input type="number" id="skill-target" placeholder="设置学习目标" min="1" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all">
+                    </div>
+                    <div class="flex items-end">
+                        <button type="submit" class="w-full bg-gradient-primary text-white py-2 px-4 rounded-lg btn-effect flex items-center justify-center">
+                            <i class="fa fa-save mr-2"></i>保存技能
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- 技能列表和详情区域 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 技能列表 -->
+            <section class="lg:col-span-1">
+                <div class="bg-white rounded-xl p-6 card-shadow h-full">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold flex items-center">
+                            <i class="fa fa-tasks text-primary-500 mr-2"></i>我的技能
+                        </h2>
+                        <span id="skills-count-badge" class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded-full">0项</span>
+                    </div>
+                    
+                    <div class="overflow-y-auto max-h-[calc(100vh-400px)] pr-2">
+                        <ul id="skills-list" class="space-y-4">
+                            <!-- 技能项将通过JavaScript动态添加 -->
+                            <li class="text-center text-gray-500 py-8">
+                                <i class="fa fa-lightbulb-o text-3xl mb-2 opacity-30"></i>
+                                <p>还没有添加技能，点击上方添加吧！</p>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 技能详情区域 -->
+            <section class="lg:col-span-2">
+                <div class="bg-white rounded-xl p-6 card-shadow h-full">
+                    <div id="no-skill-selected" class="text-center py-12">
+                        <i class="fa fa-hourglass-o text-4xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-500">请从左侧选择一个技能开始学习</p>
+                    </div>
+                    
+                    <div id="skill-details" class="hidden">
+                        <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-6">
+                            <div>
+                                <h2 id="current-skill-name" class="title-md text-dark"></h2>
+                                <p class="text-gray-500">总学习时长: <span id="current-skill-total" class="font-medium text-primary-500"></span></p>
+                                <p class="text-gray-500">学习目标: <span id="current-skill-target" class="font-medium text-accent"></span></p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button id="edit-skill" class="text-gray-500 hover:text-primary-500 transition-colors border border-gray-300 py-1 px-3 rounded-lg btn-effect flex items-center">
+                                    <i class="fa fa-pencil mr-1"></i> 编辑
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 进度条 -->
+                        <div class="bg-gray-50 rounded-lg p-4 mb-8">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="font-medium">学习进度</span>
+                                <span id="progress-percentage" class="text-primary-500 font-medium">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3.5 overflow-hidden">
+                                <div id="progress-bar" class="bg-gradient-secondary h-full rounded-full progress-animation" style="width: 0%"></div>
+                            </div>
+                            <div class="flex justify-between text-sm text-gray-500 mt-2">
+                                <span id="current-progress-text">0小时</span>
+                                <span id="target-progress-text">目标: 0小时</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 计时器 -->
+                        <div class="bg-gray-50 rounded-lg p-6 mb-8">
+                            <div id="timer-display" class="timer-display text-primary-500">00:00:00</div>
+                            <div class="flex justify-center space-x-4">
+                                <button id="start-timer" class="bg-secondary-500 text-white py-3 px-8 rounded-lg btn-effect flex items-center">
+                                    <i class="fa fa-play mr-2"></i>开始
+                                </button>
+                                <button id="pause-timer" class="bg-accent text-white py-3 px-8 rounded-lg btn-effect flex items-center hidden">
+                                    <i class="fa fa-pause mr-2"></i>暂停
+                                </button>
+                                <button id="stop-timer" class="bg-red-500 text-white py-3 px-8 rounded-lg btn-effect flex items-center">
+                                    <i class="fa fa-stop mr-2"></i>结束
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 学习小任务 -->
+                        <div class="mb-8">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-bold flex items-center">
+                                    <i class="fa fa-check-square-o text-primary-500 mr-2"></i>学习任务
+                                </h3>
+                                <button id="add-task-btn" class="text-sm bg-primary-100 text-primary-700 py-1 px-3 rounded-lg btn-effect flex items-center">
+                                    <i class="fa fa-plus mr-1"></i> 添加任务
+                                </button>
+                            </div>
+                            
+                            <div id="tasks-container" class="space-y-3 max-h-60 overflow-y-auto pr-2">
+                                <!-- 任务将通过JavaScript动态添加 -->
+                                <div class="text-center text-gray-500 py-6">
+                                    <p>还没有添加任务，点击"添加任务"开始创建</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 笔记和要点记录 -->
+                        <div>
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-bold flex items-center">
+                                    <i class="fa fa-sticky-note-o text-primary-500 mr-2"></i>笔记和要点
+                                </h3>
+                                <button id="save-note-btn" class="text-sm bg-primary-500 text-white py-1 px-3 rounded-lg btn-effect flex items-center">
+                                    <i class="fa fa-save mr-1"></i> 保存笔记
+                                </button>
+                            </div>
+                            
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <textarea id="notes-editor" rows="6" placeholder="在这里记录学习要点、心得或遇到的问题..."
+                                          class="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all resize-none"></textarea>
+                                <p class="text-xs text-gray-500 mt-2 text-right" id="note-word-count">0 个字</p>
+                            </div>
+                        </div>
+                        
+                        <!-- 学习记录 -->
+                        <div class="mt-8">
+                            <h3 class="text-lg font-bold mb-3 flex items-center">
+                                <i class="fa fa-history text-primary-500 mr-2"></i>学习记录
+                            </h3>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead>
+                                        <tr>
+                                            <th class="px-3 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日期</th>
+                                            <th class="px-3 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时长</th>
+                                            <th class="px-3 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="history-list" class="bg-white divide-y divide-gray-200">
+                                        <!-- 历史记录将通过JavaScript动态添加 -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 数据统计图表 -->
+        <section class="mt-8">
+            <div class="bg-white rounded-xl p-6 card-shadow">
+                <h2 class="text-xl font-bold mb-4 flex items-center">
+                    <i class="fa fa-bar-chart text-primary-500 mr-2"></i>学习时间分布
+                </h2>
+                <div class="h-80">
+                    <canvas id="skills-chart"></canvas>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 用户资料模态框 -->
+    <div id="user-profile-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md transform transition-all scale-95 opacity-0" id="user-profile-modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">个人资料</h3>
+                <button id="close-user-profile-modal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <form id="user-profile-form">
+                <div class="text-center mb-6">
+                    <div class="relative inline-block">
+                        <img id="profile-avatar-preview" src="https://picsum.photos/200/200?random=1" alt="用户头像" class="w-24 h-24 rounded-full object-cover border-4 border-primary-100">
+                        <label for="avatar-upload" class="absolute bottom-0 right-0 bg-primary-500 text-white rounded-full p-2 cursor-pointer hover:bg-primary-600 transition-colors">
+                            <i class="fa fa-camera"></i>
+                        </label>
+                        <input type="file" id="avatar-upload" accept="image/*" class="hidden">
+                    </div>
+                    <p class="text-sm text-gray-500 mt-2">点击相机图标更换头像</p>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="user-name" class="block text-gray-700 mb-1">用户名</label>
+                    <input type="text" id="user-name" placeholder="请输入您的用户名" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none">
+                </div>
+                
+                <div class="mb-4">
+                    <label for="user-id-display" class="block text-gray-700 mb-1">用户ID (用于数据同步)</label>
+                    <div class="flex">
+                        <input type="text" id="user-id-display" readonly 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none">
+                        <button type="button" id="copy-user-id" class="ml-2 bg-gray-100 text-gray-700 px-3 rounded-lg hover:bg-gray-200 transition-colors">
+                            <i class="fa fa-copy"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">此ID用于识别您的账户，请勿泄露给他人</p>
+                </div>
+                
+                <div class="flex justify-end">
+                    <button type="submit" class="bg-primary-500 text-white py-2 px-4 rounded-lg btn-effect">
+                        <i class="fa fa-save mr-1"></i>保存资料
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 数据同步模态框 -->
+    <div id="sync-data-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md transform transition-all scale-95 opacity-0" id="sync-data-modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">数据同步</h3>
+                <button id="close-sync-modal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="mb-6">
+                <p class="text-gray-700 mb-4">您可以通过以下方式在不同设备间同步数据：</p>
+                <div class="space-y-4">
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <h4 class="font-medium text-blue-800 flex items-center">
+                            <i class="fa fa-upload mr-2"></i>导出数据
+                        </h4>
+                        <p class="text-sm text-blue-700 mt-1">生成包含您所有数据的加密文件，用于在其他设备导入</p>
+                        <button id="export-full-data" class="mt-3 text-sm bg-blue-500 text-white py-1 px-3 rounded-lg btn-effect">
+                            生成导出文件
+                        </button>
+                    </div>
+                    
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <h4 class="font-medium text-green-800 flex items-center">
+                            <i class="fa fa-download mr-2"></i>导入数据
+                        </h4>
+                        <p class="text-sm text-green-700 mt-1">从其他设备导出的文件中恢复您的数据</p>
+                        <label class="mt-3 block text-sm bg-green-500 text-white py-1 px-3 rounded-lg btn-effect text-center cursor-pointer">
+                            选择导入文件
+                            <input type="file" id="import-full-data" accept=".json" class="hidden">
+                        </label>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-4">
+                    <i class="fa fa-info-circle mr-1"></i> 数据存储在您的设备上，我们不会上传您的任何信息到服务器
+                </p>
+            </div>
+            <div class="flex justify-end">
+                <button id="close-sync-btn" class="bg-gray-200 text-gray-800 py-2 px-4 rounded-lg btn-effect">
+                    关闭
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑技能模态框 -->
+    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md transform transition-all scale-95 opacity-0" id="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">编辑技能</h3>
+                <button id="close-modal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <form id="edit-skill-form">
+                <input type="hidden" id="edit-skill-id">
+                <div class="mb-4">
+                    <label for="edit-skill-name" class="block text-gray-700 mb-1">技能名称</label>
+                    <input type="text" id="edit-skill-name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none">
+                </div>
+                <div class="mb-4">
+                    <label for="edit-skill-target" class="block text-gray-700 mb-1">目标学习时长（小时）</label>
+                    <input type="number" id="edit-skill-target" min="1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none">
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="delete-skill" class="bg-red-500 text-white py-2 px-4 rounded-lg btn-effect">
+                        <i class="fa fa-trash mr-1"></i>删除
+                    </button>
+                    <button type="submit" class="bg-primary-500 text-white py-2 px-4 rounded-lg btn-effect">
+                        <i class="fa fa-save mr-1"></i>保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 添加任务模态框（支持Markdown批量添加） -->
+    <div id="task-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md transform transition-all scale-95 opacity-0" id="task-modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">添加学习任务</h3>
+                <button id="close-task-modal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <form id="add-task-form">
+                <input type="hidden" id="task-skill-id">
+                <div class="mb-4">
+                    <label for="task-list" class="block text-gray-700 mb-1">任务列表</label>
+                    <textarea id="task-list" rows="6" placeholder="输入任务列表，可以使用Markdown格式批量添加：
+- 任务1名称
+- 任务2名称
+  任务2的描述（可选）
+- 任务3名称" 
+                              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none resize-none"></textarea>
+                    <div class="markdown-hint">
+                        支持Markdown列表格式，使用减号(-)或星号(*)开头创建多个任务，缩进的文本将作为任务描述
+                    </div>
+                </div>
+                <div class="flex justify-end">
+                    <button type="submit" class="bg-primary-500 text-white py-2 px-4 rounded-lg btn-effect">
+                        <i class="fa fa-plus mr-1"></i>添加任务
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <footer class="bg-white border-t mt-12 py-6">
+        <div class="container mx-auto px-4 text-center text-gray-500">
+            <p>技能学习追踪器 &copy; 2023 | 记录你的每一点进步</p>
+        </div>
+    </footer>
+
+    <script>
+        // 数据模型 - 扩展支持用户信息和数据同步
+        let user = {
+            id: null,
+            name: '游客',
+            avatar: 'https://picsum.photos/200/200?random=1',
+            lastSync: null
+        };
+        let skills = [];
+        let currentSkillId = null;
+        let timerInterval = null;
+        let secondsElapsed = 0;
+        let chart = null;
+
+        // DOM 元素
+        const skillsListEl = document.getElementById('skills-list');
+        const addSkillForm = document.getElementById('add-skill-form');
+        const skillNameInput = document.getElementById('skill-name');
+        const skillTargetInput = document.getElementById('skill-target');
+        const noSkillSelectedEl = document.getElementById('no-skill-selected');
+        const skillDetailsEl = document.getElementById('skill-details');
+        const currentSkillNameEl = document.getElementById('current-skill-name');
+        const currentSkillTotalEl = document.getElementById('current-skill-total');
+        const currentSkillTargetEl = document.getElementById('current-skill-target');
+        const timerDisplayEl = document.getElementById('timer-display');
+        const startTimerBtn = document.getElementById('start-timer');
+        const pauseTimerBtn = document.getElementById('pause-timer');
+        const stopTimerBtn = document.getElementById('stop-timer');
+        const historyListEl = document.getElementById('history-list');
+        const totalSkillsEl = document.getElementById('total-skills');
+        const totalHoursEl = document.getElementById('total-hours');
+        const pendingTasksEl = document.getElementById('pending-tasks');
+        const skillsCountBadgeEl = document.getElementById('skills-count-badge');
+        const editSkillBtn = document.getElementById('edit-skill');
+        const editModalEl = document.getElementById('edit-modal');
+        const modalContentEl = document.getElementById('modal-content');
+        const closeModalBtn = document.getElementById('close-modal');
+        const editSkillForm = document.getElementById('edit-skill-form');
+        const editSkillIdInput = document.getElementById('edit-skill-id');
+        const editSkillNameInput = document.getElementById('edit-skill-name');
+        const editSkillTargetInput = document.getElementById('edit-skill-target');
+        const deleteSkillBtn = document.getElementById('delete-skill');
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const exportDataBtn = document.getElementById('export-data'); // Excel导出按钮
+        
+        // 用户信息和同步相关元素
+        const userMenuContainer = document.getElementById('user-menu-container');
+        const userMenuButton = document.getElementById('user-menu-button');
+        const userDropdownMenu = document.getElementById('user-dropdown-menu');
+        const userDisplayName = document.getElementById('user-display-name');
+        const userAvatarImg = document.getElementById('user-avatar');
+        const editUserProfileBtn = document.getElementById('edit-user-profile');
+        const userWelcomeSection = document.getElementById('user-welcome-section');
+        const completeProfileBtn = document.getElementById('complete-profile-btn');
+        const syncDataBtn = document.getElementById('sync-data');
+        const importUserDataBtn = document.getElementById('import-user-data');
+        const resetUserDataBtn = document.getElementById('reset-user-data');
+        
+        // 用户资料模态框元素
+        const userProfileModal = document.getElementById('user-profile-modal');
+        const userProfileModalContent = document.getElementById('user-profile-modal-content');
+        const closeUserProfileModalBtn = document.getElementById('close-user-profile-modal');
+        const userProfileForm = document.getElementById('user-profile-form');
+        const userNameInput = document.getElementById('user-name');
+        const userIdDisplay = document.getElementById('user-id-display');
+        const copyUserIdBtn = document.getElementById('copy-user-id');
+        const avatarUploadInput = document.getElementById('avatar-upload');
+        const profileAvatarPreview = document.getElementById('profile-avatar-preview');
+        
+        // 数据同步模态框元素
+        const syncDataModal = document.getElementById('sync-data-modal');
+        const syncDataModalContent = document.getElementById('sync-data-modal-content');
+        const closeSyncModalBtn = document.getElementById('close-sync-modal');
+        const closeSyncBtn = document.getElementById('close-sync-btn');
+        const exportFullDataBtn = document.getElementById('export-full-data');
+        const importFullDataInput = document.getElementById('import-full-data');
+        
+        // 进度条元素
+        const progressBarEl = document.getElementById('progress-bar');
+        const progressPercentageEl = document.getElementById('progress-percentage');
+        const currentProgressTextEl = document.getElementById('current-progress-text');
+        const targetProgressTextEl = document.getElementById('target-progress-text');
+        
+        // 任务和笔记元素（支持Markdown）
+        const tasksContainerEl = document.getElementById('tasks-container');
+        const addTaskBtn = document.getElementById('add-task-btn');
+        const taskModalEl = document.getElementById('task-modal');
+        const taskModalContentEl = document.getElementById('task-modal-content');
+        const closeTaskModalBtn = document.getElementById('close-task-modal');
+        const addTaskForm = document.getElementById('add-task-form');
+        const taskSkillIdInput = document.getElementById('task-skill-id');
+        const taskListInput = document.getElementById('task-list'); // 批量输入
+        const notesEditorEl = document.getElementById('notes-editor');
+        const saveNoteBtn = document.getElementById('save-note-btn');
+        const noteWordCountEl = document.getElementById('note-word-count');
+
+        // 初始化
+        function init() {
+            // 先加载用户信息
+            loadUserInfo();
+            // 再加载技能数据
+            loadSkills();
+            
+            renderUserInfo();
+            renderSkillsList();
+            updateStats();
+            initChart();
+            setupEventListeners();
+            setupTheme();
+            
+            // 检查是否是新用户，显示欢迎信息
+            checkNewUser();
+        }
+
+        // 生成唯一用户ID
+        function generateUserId() {
+            // 生成一个随机的32位UUID
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        // 加载用户信息
+        function loadUserInfo() {
+            const savedUser = localStorage.getItem('userInfo');
+            if (savedUser) {
+                user = JSON.parse(savedUser);
+            } else {
+                // 新用户，生成唯一ID
+                user.id = generateUserId();
+                saveUserInfo();
+            }
+        }
+
+        // 保存用户信息
+        function saveUserInfo() {
+            localStorage.setItem('userInfo', JSON.stringify(user));
+        }
+
+        // 渲染用户信息到界面
+        function renderUserInfo() {
+            userDisplayName.textContent = user.name || '游客';
+            userAvatarImg.src = user.avatar || 'https://picsum.photos/200/200?random=1';
+            profileAvatarPreview.src = user.avatar || 'https://picsum.photos/200/200?random=1';
+            userNameInput.value = user.name || '';
+            userIdDisplay.value = user.id || '';
+        }
+
+        // 检查是否是新用户
+        function checkNewUser() {
+            // 如果用户名为默认值且没有技能数据，则视为新用户
+            if (user.name === '游客' && skills.length === 0) {
+                userWelcomeSection.classList.remove('hidden');
+            }
+        }
+
+        // 从localStorage加载技能数据
+        function loadSkills() {
+            const savedSkills = localStorage.getItem('userSkills_' + user.id);
+            if (savedSkills) {
+                skills = JSON.parse(savedSkills);
+            } else {
+                skills = [];
+            }
+        }
+
+        // 保存技能数据到localStorage（与用户ID关联）
+        function saveSkills() {
+            localStorage.setItem('userSkills_' + user.id, JSON.stringify(skills));
+        }
+
+        // 渲染技能列表（包含进度条）
+        function renderSkillsList() {
+            if (skills.length === 0) {
+                skillsListEl.innerHTML = `
+                    <li class="text-center text-gray-500 py-8">
+                        <i class="fa fa-lightbulb-o text-3xl mb-2 opacity-30"></i>
+                        <p>还没有添加技能，点击上方添加吧！</p>
+                    </li>
+                `;
+                return;
+            }
+
+            skillsListEl.innerHTML = '';
+            skills.forEach(skill => {
+                // 计算未完成任务数量
+                const pendingTasks = skill.tasks 
+                    ? skill.tasks.filter(task => !task.completed).length 
+                    : 0;
+                
+                // 计算进度百分比
+                const currentHours = skill.totalSeconds ? Math.floor(skill.totalSeconds / 3600) : 0;
+                const targetHours = skill.targetHours || 0;
+                const progressPercent = targetHours > 0 ? Math.min(Math.round((currentHours / targetHours) * 100), 100) : 0;
+                
+                const li = document.createElement('li');
+                li.className = `p-4 rounded-xl border ${currentSkillId === skill.id ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-primary-500 hover:bg-gray-50'} cursor-pointer transition-all`;
+                li.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <p class="font-medium ${currentSkillId === skill.id ? 'text-primary-500' : ''}">${skill.name}</p>
+                            <p class="text-sm text-gray-500">${formatTotalHours(skill.totalSeconds)} ${pendingTasks > 0 ? `- ${pendingTasks}个未完成任务` : ''}</p>
+                        </div>
+                        <span class="text-xs font-medium px-2 py-0.5 rounded-full ${progressPercent >= 100 ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">
+                            ${progressPercent}%
+                        </span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div class="bg-gradient-secondary h-full rounded-full progress-animation" style="width: ${progressPercent}%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>${currentHours}小时</span>
+                        <span>/${targetHours}小时</span>
+                    </div>
+                `;
+                li.addEventListener('click', () => selectSkill(skill.id));
+                skillsListEl.appendChild(li);
+            });
+        }
+
+        // 选择技能 - 更新进度条
+        function selectSkill(id) {
+            currentSkillId = id;
+            const skill = skills.find(s => s.id === id);
+            
+            if (!skill) return;
+            
+            // 重置计时器
+            stopTimer();
+            secondsElapsed = 0;
+            updateTimerDisplay();
+            
+            // 更新UI
+            currentSkillNameEl.textContent = skill.name;
+            currentSkillTotalEl.textContent = formatTotalHours(skill.totalSeconds);
+            currentSkillTargetEl.textContent = `${skill.targetHours || 0}小时`;
+            
+            // 更新进度条
+            updateProgressBar(skill);
+            
+            // 加载任务
+            renderTasks(skill.tasks || []);
+            
+            // 加载笔记
+            notesEditorEl.value = skill.notes || '';
+            updateNoteWordCount();
+            
+            // 加载历史记录
+            renderHistory(skill.history || []);
+            
+            noSkillSelectedEl.classList.add('hidden');
+            skillDetailsEl.classList.remove('hidden');
+            renderSkillsList();
+        }
+
+        // 更新进度条
+        function updateProgressBar(skill) {
+            const currentHours = skill.totalSeconds ? Math.floor(skill.totalSeconds / 3600) : 0;
+            const targetHours = skill.targetHours || 0;
+            const progressPercent = targetHours > 0 ? Math.min(Math.round((currentHours / targetHours) * 100), 100) : 0;
+            
+            // 更新进度条UI
+            progressBarEl.style.width = `${progressPercent}%`;
+            progressPercentageEl.textContent = `${progressPercent}%`;
+            currentProgressTextEl.textContent = `${currentHours}小时`;
+            targetProgressTextEl.textContent = `目标: ${targetHours}小时`;
+            
+            // 根据进度更改颜色
+            if (progressPercent >= 100) {
+                progressBarEl.classList.remove('bg-gradient-secondary');
+                progressBarEl.classList.add('bg-gradient-primary');
+            } else {
+                progressBarEl.classList.remove('bg-gradient-primary');
+                progressBarEl.classList.add('bg-gradient-secondary');
+            }
+        }
+
+        // 渲染任务列表
+        function renderTasks(tasks) {
+            if (tasks.length === 0) {
+                tasksContainerEl.innerHTML = `
+                    <div class="text-center text-gray-500 py-6">
+                        <p>还没有添加任务，点击"添加任务"开始创建</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            tasksContainerEl.innerHTML = '';
+            tasks.forEach((task, index) => {
+                const taskEl = document.createElement('div');
+                taskEl.className = `bg-gray-50 p-4 rounded-lg border-l-4 ${task.completed ? 'border-secondary-500' : 'border-primary-500'} transition-all`;
+                taskEl.innerHTML = `
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1 mr-3">
+                            <div class="flex items-center">
+                                <input type="checkbox" ${task.completed ? 'checked' : ''} 
+                                       class="task-checkbox mr-2 h-4 w-4 text-primary-500 focus:ring-primary-500 border-gray-300 rounded"
+                                       data-index="${index}">
+                                <h4 class="font-medium ${task.completed ? 'line-through text-gray-500' : ''}">${task.name}</h4>
+                            </div>
+                            ${task.description ? `<p class="text-sm text-gray-600 mt-1 ml-6">${task.description}</p>` : ''}
+                        </div>
+                        <button class="delete-task text-gray-400 hover:text-red-500 transition-colors" data-index="${index}">
+                            <i class="fa fa-trash-o"></i>
+                        </button>
+                    </div>
+                `;
+                tasksContainerEl.appendChild(taskEl);
+            });
+            
+            // 添加任务事件监听
+            document.querySelectorAll('.task-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    const index = parseInt(e.currentTarget.dataset.index);
+                    toggleTaskCompletion(index);
+                });
+            });
+            
+            document.querySelectorAll('.delete-task').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.currentTarget.dataset.index);
+                    deleteTask(index);
+                });
+            });
+        }
+
+        // 切换任务完成状态
+        function toggleTaskCompletion(index) {
+            const skill = skills.find(s => s.id === currentSkillId);
+            if (!skill || !skill.tasks) return;
+            
+            skill.tasks[index].completed = !skill.tasks[index].completed;
+            saveSkills();
+            renderTasks(skill.tasks);
+            updateStats();
+            renderSkillsList();
+        }
+
+        // 删除任务
+        function deleteTask(index) {
+            const skill = skills.find(s => s.id === currentSkillId);
+            if (!skill || !skill.tasks) return;
+            
+            skill.tasks.splice(index, 1);
+            saveSkills();
+            renderTasks(skill.tasks);
+            updateStats();
+            renderSkillsList();
+        }
+
+        // 解析Markdown列表为任务数组
+        function parseMarkdownTasks(markdownText) {
+            const tasks = [];
+            if (!markdownText.trim()) return tasks;
+            
+            // 按行分割文本
+            const lines = markdownText.split('\n');
+            let currentTask = null;
+            
+            lines.forEach(line => {
+                // 去除首尾空白
+                const trimmedLine = line.trim();
+                
+                // 跳过空行
+                if (trimmedLine === '') {
+                    // 如果有当前任务且为空行，说明描述结束
+                    if (currentTask && currentTask.description) {
+                        tasks.push(currentTask);
+                        currentTask = null;
+                    }
+                    return;
+                }
+                
+                // 匹配列表项（- 或 * 开头）
+                const listItemMatch = trimmedLine.match(/^[-*+]\s+(.*)/);
+                
+                if (listItemMatch) {
+                    // 如果已有当前任务，先添加到数组
+                    if (currentTask) {
+                        tasks.push(currentTask);
+                    }
+                    
+                    // 创建新任务
+                    currentTask = {
+                        name: listItemMatch[1],
+                        description: ''
+                    };
+                } else {
+                    // 检查是否为缩进的描述文本（至少两个空格）
+                    const indentMatch = line.match(/^\s{2,}(.*)/);
+                    if (indentMatch && currentTask) {
+                        // 添加到当前任务的描述
+                        currentTask.description += (currentTask.description ? '\n' : '') + indentMatch[1];
+                    } else if (currentTask) {
+                        // 不是列表项也不是缩进文本，但有当前任务，说明是同一任务的多行名称
+                        currentTask.name += '\n' + trimmedLine;
+                    }
+                }
+            });
+            
+            // 添加最后一个任务
+            if (currentTask) {
+                tasks.push(currentTask);
+            }
+            
+            return tasks;
+        }
+
+        // 批量添加任务
+        function addMultipleTasks(taskList) {
+            if (!taskList || taskList.length === 0 || !currentSkillId) return;
+            
+            const skill = skills.find(s => s.id === currentSkillId);
+            if (!skill) return;
+            
+            // 初始化任务数组（如果不存在）
+            if (!skill.tasks) {
+                skill.tasks = [];
+            }
+            
+            // 为每个任务添加唯一ID和创建时间
+            const newTasks = taskList.map(task => ({
+                id: Date.now().toString() + '-' + Math.random().toString(36).substr(2, 5),
+                name: task.name.trim(),
+                description: task.description.trim(),
+                completed: false,
+                createdAt: new Date().toISOString()
+            }));
+            
+            // 添加到技能的任务列表
+            skill.tasks.push(...newTasks);
+            saveSkills();
+            renderTasks(skill.tasks);
+            updateStats();
+            renderSkillsList();
+        }
+
+        // 保存笔记
+        function saveNotes(content) {
+            if (!currentSkillId) return;
+            
+            const skill = skills.find(s => s.id === currentSkillId);
+            if (skill) {
+                skill.notes = content;
+                saveSkills();
+                
+                // 显示保存成功提示
+                const originalText = saveNoteBtn.innerHTML;
+                saveNoteBtn.innerHTML = '<i class="fa fa-check mr-1"></i> 已保存';
+                saveNoteBtn.classList.add('bg-green-500');
+                
+                setTimeout(() => {
+                    saveNoteBtn.innerHTML = originalText;
+                    saveNoteBtn.classList.remove('bg-green-500');
+                }, 2000);
+            }
+        }
+
+        // 更新笔记字数统计
+        function updateNoteWordCount() {
+            const count = notesEditorEl.value.length;
+            noteWordCountEl.textContent = `${count} 个字`;
+        }
+
+        // 渲染学习历史
+        function renderHistory(history) {
+            if (!history || history.length === 0) {
+                historyListEl.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="px-3 py-4 text-center text-gray-500">暂无学习记录</td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            // 按日期倒序排列
+            const sortedHistory = [...history].sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            historyListEl.innerHTML = '';
+            sortedHistory.forEach((entry, index) => {
+                const tr = document.createElement('tr');
+                tr.className = index % 2 === 0 ? 'bg-gray-50' : 'bg-white';
+                tr.innerHTML = `
+                    <td class="px-3 py-3 whitespace-nowrap">${formatDate(entry.date)}</td>
+                    <td class="px-3 py-3 whitespace-nowrap">${formatDuration(entry.seconds)}</td>
+                    <td class="px-3 py-3 whitespace-nowrap">
+                        <button class="text-red-500 hover:text-red-700 text-sm delete-history" data-index="${index}">
+                            <i class="fa fa-trash-o"></i> 删除
+                        </button>
+                    </td>
+                `;
+                historyListEl.appendChild(tr);
+            });
+            
+            // 添加删除历史记录事件监听
+            document.querySelectorAll('.delete-history').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.currentTarget.dataset.index);
+                    deleteHistoryEntry(index);
+                });
+            });
+        }
+
+        // 删除历史记录
+        function deleteHistoryEntry(index) {
+            const skill = skills.find(s => s.id === currentSkillId);
+            if (!skill || !skill.history) return;
+            
+            // 从总时长中减去
+            const entry = skill.history[index];
+            skill.totalSeconds -= entry.seconds;
+            
+            // 删除记录
+            skill.history.splice(index, 1);
+            
+            // 保存并更新UI
+            saveSkills();
+            currentSkillTotalEl.textContent = formatTotalHours(skill.totalSeconds);
+            renderHistory(skill.history);
+            updateProgressBar(skill); // 更新进度条
+            updateStats();
+            updateChart();
+            renderSkillsList(); // 更新技能列表中的进度
+        }
+
+        // 格式化总时长（小时）
+        function formatTotalHours(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            
+            if (hours === 0) {
+                return `${minutes}分钟`;
+            }
+            
+            return `${hours}小时${minutes > 0 ? ` ${minutes}分钟` : ''}`;
+        }
+
+        // 格式化时长（时分秒）
+        function formatDuration(seconds) {
+            const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+            const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        }
+
+        // 格式化日期
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('zh-CN', { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // 开始计时器
+        function startTimer() {
+            if (timerInterval || !currentSkillId) return;
+            
+            startTimerBtn.classList.add('hidden');
+            pauseTimerBtn.classList.remove('hidden');
+            
+            timerInterval = setInterval(() => {
+                secondsElapsed++;
+                updateTimerDisplay();
+            }, 1000);
+        }
+
+        // 暂停计时器
+        function pauseTimer() {
+            if (!timerInterval) return;
+            
+            clearInterval(timerInterval);
+            timerInterval = null;
+            
+            startTimerBtn.classList.remove('hidden');
+            pauseTimerBtn.classList.add('hidden');
+        }
+
+        // 停止计时器并保存记录
+        function stopTimer() {
+            if (!timerInterval && secondsElapsed === 0) return;
+            
+            clearInterval(timerInterval);
+            timerInterval = null;
+            
+            startTimerBtn.classList.remove('hidden');
+            pauseTimerBtn.classList.add('hidden');
+            
+            // 只有当有计时时长时才保存
+            if (secondsElapsed > 0) {
+                const skill = skills.find(s => s.id === currentSkillId);
+                if (skill) {
+                    // 添加到历史记录
+                    if (!skill.history) {
+                        skill.history = [];
+                    }
+                    
+                    skill.history.push({
+                        date: new Date().toISOString(),
+                        seconds: secondsElapsed
+                    });
+                    
+                    // 更新总时长
+                    skill.totalSeconds = (skill.totalSeconds || 0) + secondsElapsed;
+                    
+                    // 保存并更新UI
+                    saveSkills();
+                    currentSkillTotalEl.textContent = formatTotalHours(skill.totalSeconds);
+                    renderHistory(skill.history);
+                    updateProgressBar(skill); // 更新进度条
+                    updateStats();
+                    updateChart();
+                    renderSkillsList(); // 更新技能列表中的进度
+                }
+            }
+            
+            // 重置计时器
+            secondsElapsed = 0;
+            updateTimerDisplay();
+        }
+
+        // 更新计时器显示
+        function updateTimerDisplay() {
+            timerDisplayEl.textContent = formatDuration(secondsElapsed);
+        }
+
+        // 添加新技能（带目标时长）
+        function addSkill(name, targetHours) {
+            if (!name.trim() || !targetHours || targetHours < 1) return;
+            
+            const newSkill = {
+                id: Date.now().toString(),
+                name: name.trim(),
+                targetHours: parseInt(targetHours), // 学习目标（小时）
+                totalSeconds: 0,
+                history: [],
+                tasks: [],
+                notes: ''
+            };
+            
+            skills.push(newSkill);
+            saveSkills();
+            renderSkillsList();
+            updateStats();
+            updateChart();
+            
+            // 自动选择新添加的技能
+            selectSkill(newSkill.id);
+        }
+
+        // 更新技能（包括目标时长）
+        function updateSkill(id, newName, newTargetHours) {
+            if (!newName.trim() || !newTargetHours || newTargetHours < 1) return;
+            
+            const skill = skills.find(s => s.id === id);
+            if (skill) {
+                skill.name = newName.trim();
+                skill.targetHours = parseInt(newTargetHours);
+                saveSkills();
+                renderSkillsList();
+                
+                // 如果正在查看该技能，更新显示
+                if (currentSkillId === id) {
+                    currentSkillNameEl.textContent = skill.name;
+                    currentSkillTargetEl.textContent = `${skill.targetHours}小时`;
+                    updateProgressBar(skill); // 更新进度条
+                }
+                
+                updateChart();
+            }
+        }
+
+        // 删除技能
+        function deleteSkill(id) {
+            const skillIndex = skills.findIndex(s => s.id === id);
+            if (skillIndex !== -1) {
+                skills.splice(skillIndex, 1);
+                saveSkills();
+                
+                // 如果删除的是当前选中的技能，重置显示
+                if (currentSkillId === id) {
+                    currentSkillId = null;
+                    skillDetailsEl.classList.add('hidden');
+                    noSkillSelectedEl.classList.remove('hidden');
+                    stopTimer();
+                }
+                
+                renderSkillsList();
+                updateStats();
+                updateChart();
+            }
+        }
+
+        // 更新统计数据
+        function updateStats() {
+            // 总技能数
+            const totalSkills = skills.length;
+            totalSkillsEl.textContent = totalSkills;
+            skillsCountBadgeEl.textContent = `${totalSkills}项`;
+            
+            // 总学习时间
+            const totalSeconds = skills.reduce((sum, skill) => sum + (skill.totalSeconds || 0), 0);
+            const totalHours = Math.floor(totalSeconds / 3600);
+            totalHoursEl.textContent = `${totalHours}小时`;
+            
+            // 未完成任务总数
+            let pendingTasks = 0;
+            skills.forEach(skill => {
+                if (skill.tasks) {
+                    pendingTasks += skill.tasks.filter(task => !task.completed).length;
+                }
+            });
+            pendingTasksEl.textContent = `${pendingTasks}项`;
+        }
+
+        // 初始化图表
+        function initChart() {
+            const ctx = document.getElementById('skills-chart').getContext('2d');
+            
+            // 准备图表数据
+            const labels = skills.map(skill => skill.name);
+            const data = skills.map(skill => Math.floor(skill.totalSeconds / 3600)); // 转换为小时
+            
+            // 生成颜色
+            const backgroundColors = skills.map((_, index) => {
+                const hue = (index * 137) % 360; // 使用黄金角分布颜色
+                return `hsla(${hue}, 70%, 60%, 0.7)`;
+            });
+            
+            const borderColors = backgroundColors.map(color => color.replace('0.7', '1'));
+            
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '学习时长（小时）',
+                        data: data,
+                        backgroundColor: backgroundColors,
+                        borderColor: borderColors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '小时'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const hours = context.raw;
+                                    const skill = skills.find(s => s.name === context.label);
+                                    const minutes = skill ? Math.floor((skill.totalSeconds % 3600) / 60) : 0;
+                                    const target = skill ? skill.targetHours : 0;
+                                    const percentage = target ? Math.round((hours / target) * 100) : 0;
+                                    return `时长: ${hours}小时${minutes}分钟 (${percentage}% of ${target}小时)`;
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeOutQuart'
+                    }
+                }
+            });
+        }
+
+        // 更新图表
+        function updateChart() {
+            if (!chart) {
+                initChart();
+                return;
+            }
+            
+            const labels = skills.map(skill => skill.name);
+            const data = skills.map(skill => Math.floor(skill.totalSeconds / 3600));
+            
+            // 更新颜色
+            const backgroundColors = skills.map((_, index) => {
+                const hue = (index * 137) % 360;
+                return `hsla(${hue}, 70%, 60%, 0.7)`;
+            });
+            
+            const borderColors = backgroundColors.map(color => color.replace('0.7', '1'));
+            
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = data;
+            chart.data.datasets[0].backgroundColor = backgroundColors;
+            chart.data.datasets[0].borderColor = borderColors;
+            chart.update();
+        }
+
+        // 设置主题
+        function setupTheme() {
+            const isDarkMode = localStorage.getItem('theme') === 'dark' || 
+                              (!localStorage.getItem('theme') && 
+                               window.matchMedia('(prefers-color-scheme: dark)').matches);
+            
+            if (isDarkMode) {
+                document.body.classList.add('bg-gray-900', 'text-white');
+                document.body.classList.remove('bg-gray-50', 'text-gray-900');
+                themeToggleBtn.querySelector('i').classList.remove('fa-moon-o');
+                themeToggleBtn.querySelector('i').classList.add('fa-sun-o');
+            }
+        }
+
+        // 切换主题
+        function toggleTheme() {
+            const isDark = document.body.classList.toggle('bg-gray-900');
+            document.body.classList.toggle('text-white', isDark);
+            document.body.classList.toggle('bg-gray-50', !isDark);
+            document.body.classList.toggle('text-gray-900', !isDark);
+            
+            const icon = themeToggleBtn.querySelector('i');
+            if (isDark) {
+                icon.classList.remove('fa-moon-o');
+                icon.classList.add('fa-sun-o');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                icon.classList.remove('fa-sun-o');
+                icon.classList.add('fa-moon-o');
+                localStorage.setItem('theme', 'light');
+            }
+        }
+
+        // 显示用户资料模态框
+        function showUserProfileModal() {
+            userProfileModal.classList.remove('hidden');
+            setTimeout(() => {
+                userProfileModalContent.classList.remove('scale-95', 'opacity-0');
+                userProfileModalContent.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        // 关闭用户资料模态框
+        function closeUserProfileModal() {
+            userProfileModalContent.classList.remove('scale-100', 'opacity-100');
+            userProfileModalContent.classList.add('scale-95', 'opacity-0');
+            
+            setTimeout(() => {
+                userProfileModal.classList.add('hidden');
+            }, 300);
+        }
+
+        // 显示数据同步模态框
+        function showSyncDataModal() {
+            syncDataModal.classList.remove('hidden');
+            setTimeout(() => {
+                syncDataModalContent.classList.remove('scale-95', 'opacity-0');
+                syncDataModalContent.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        // 关闭数据同步模态框
+        function closeSyncDataModal() {
+            syncDataModalContent.classList.remove('scale-100', 'opacity-100');
+            syncDataModalContent.classList.add('scale-95', 'opacity-0');
+            
+            setTimeout(() => {
+                syncDataModal.classList.add('hidden');
+            }, 300);
+        }
+
+        // 显示任务模态框
+        function showTaskModal() {
+            if (!currentSkillId) return;
+            
+            taskSkillIdInput.value = currentSkillId;
+            taskListInput.value = '';
+            
+            taskModalEl.classList.remove('hidden');
+            setTimeout(() => {
+                taskModalContentEl.classList.remove('scale-95', 'opacity-0');
+                taskModalContentEl.classList.add('scale-100', 'opacity-100');
+            }, 10);
+            
+            taskListInput.focus();
+        }
+
+        // 关闭任务模态框
+        function closeTaskModal() {
+            taskModalContentEl.classList.remove('scale-100', 'opacity-100');
+            taskModalContentEl.classList.add('scale-95', 'opacity-0');
+            
+            setTimeout(() => {
+                taskModalEl.classList.add('hidden');
+            }, 300);
+        }
+
+        // 导出完整用户数据（用于同步）
+        function exportFullUserData() {
+            // 创建包含用户信息和技能数据的完整数据包
+            const exportData = {
+                userId: user.id,
+                userName: user.name,
+                exportDate: new Date().toISOString(),
+                skills: skills
+            };
+            
+            // 转换为JSON字符串
+            const jsonData = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([jsonData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            // 创建下载链接
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `skill-tracker-data-${user.id.substring(0, 8)}-${new Date().toLocaleDateString().replace(/\//g, '-')}.json`;
+            document.body.appendChild(a);
+            a.click();
+            
+            // 清理
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 0);
+            
+            // 更新最后同步时间
+            user.lastSync = new Date().toISOString();
+            saveUserInfo();
+        }
+
+        // 导入用户数据
+        function importFullUserData(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    // 验证数据格式
+                    if (!importedData.userId || !importedData.skills) {
+                        throw new Error('无效的数据格式');
+                    }
+                    
+                    // 询问用户是否确认导入（会覆盖现有数据）
+                    if (confirm(`即将导入用户数据，这将覆盖当前所有学习记录。\n导入的用户ID: ${importedData.userId}\n是否继续？`)) {
+                        // 更新技能数据
+                        skills = importedData.skills;
+                        saveSkills();
+                        
+                        // 如果导入的是不同用户的数据，更新用户信息
+                        if (importedData.userId !== user.id) {
+                            user.id = importedData.userId;
+                            user.name = importedData.userName || user.name;
+                            saveUserInfo();
+                            renderUserInfo();
+                        }
+                        
+                        // 更新最后同步时间
+                        user.lastSync = new Date().toISOString();
+                        saveUserInfo();
+                        
+                        // 重新渲染界面
+                        currentSkillId = null;
+                        skillDetailsEl.classList.add('hidden');
+                        noSkillSelectedEl.classList.remove('hidden');
+                        renderSkillsList();
+                        updateStats();
+                        updateChart();
+                        
+                        alert('数据导入成功！');
+                        closeSyncDataModal();
+                    }
+                } catch (error) {
+                    alert('数据导入失败: ' + error.message);
+                    console.error('Import error:', error);
+                }
+            };
+            
+            reader.readAsText(file);
+        }
+
+        // 重置所有用户数据
+        function resetUserData() {
+            if (confirm('确定要重置所有数据吗？这将删除所有技能、任务和学习记录，且无法恢复！')) {
+                // 清空技能数据
+                skills = [];
+                saveSkills();
+                
+                // 重置界面
+                currentSkillId = null;
+                skillDetailsEl.classList.add('hidden');
+                noSkillSelectedEl.classList.remove('hidden');
+                renderSkillsList();
+                updateStats();
+                updateChart();
+                
+                alert('所有数据已重置');
+            }
+        }
+
+        // 导出数据到Excel
+        function exportToExcel() {
+            if (skills.length === 0) {
+                alert('没有可导出的数据，请先添加技能和学习记录。');
+                return;
+            }
+            
+            // 创建工作簿
+            const wb = XLSX.utils.book_new();
+            
+            // 添加用户信息到Excel
+            const userInfoData = [
+                { '信息': '用户名', '值': user.name || '未设置' },
+                { '信息': '用户ID', '值': user.id || '未设置' },
+                { '信息': '最后同步时间', '值': user.lastSync ? new Date(user.lastSync).toLocaleString() : '从未同步' },
+                { '信息': '导出时间', '值': new Date().toLocaleString() }
+            ];
+            const userInfoWs = XLSX.utils.json_to_sheet(userInfoData);
+            XLSX.utils.book_append_sheet(wb, userInfoWs, '用户信息');
+            
+            // 1. 技能总览表
+            const overviewData = skills.map(skill => {
+                const currentHours = skill.totalSeconds ? Math.floor(skill.totalSeconds / 3600) : 0;
+                const minutes = skill.totalSeconds ? Math.floor((skill.totalSeconds % 3600) / 60) : 0;
+                const targetHours = skill.targetHours || 0;
+                const progressPercent = targetHours > 0 ? Math.round((currentHours / targetHours) * 100) : 0;
+                const taskCount = skill.tasks ? skill.tasks.length : 0;
+                const completedTasks = skill.tasks ? skill.tasks.filter(t => t.completed).length : 0;
+                
+                return {
+                    '技能名称': skill.name,
+                    '目标时长(小时)': targetHours,
+                    '已学习时长(小时)': currentHours,
+                    '已学习时长(分钟)': minutes,
+                    '总学习时长': `${currentHours}小时${minutes}分钟`,
+                    '学习进度(%)': progressPercent,
+                    '任务总数': taskCount,
+                    '已完成任务数': completedTasks,
+                    '未完成任务数': taskCount - completedTasks
+                };
+            });
+            
+            const overviewWs = XLSX.utils.json_to_sheet(overviewData);
+            XLSX.utils.book_append_sheet(wb, overviewWs, '技能总览');
+            
+            // 2. 任务详情表
+            const tasksData = [];
+            skills.forEach(skill => {
+                if (skill.tasks && skill.tasks.length > 0) {
+                    skill.tasks.forEach(task => {
+                        tasksData.push({
+                            '技能名称': skill.name,
+                            '任务名称': task.name,
+                            '任务描述': task.description || '',
+                            '完成状态': task.completed ? '已完成' : '未完成',
+                            '创建时间': new Date(task.createdAt).toLocaleString()
+                        });
+                    });
+                }
+            });
+            
+            if (tasksData.length > 0) {
+                const tasksWs = XLSX.utils.json_to_sheet(tasksData);
+                XLSX.utils.book_append_sheet(wb, tasksWs, '任务详情');
+            }
+            
+            // 3. 学习记录表
+            const historyData = [];
+            skills.forEach(skill => {
+                if (skill.history && skill.history.length > 0) {
+                    skill.history.forEach(record => {
+                        const hours = Math.floor(record.seconds / 3600);
+                        const minutes = Math.floor((record.seconds % 3600) / 60);
+                        const seconds = record.seconds % 60;
+                        
+                        historyData.push({
+                            '技能名称': skill.name,
+                            '学习日期': new Date(record.date).toLocaleString(),
+                            '学习时长(小时)': hours,
+                            '学习时长(分钟)': minutes,
+                            '学习时长(秒)': seconds,
+                            '总时长': `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+                        });
+                    });
+                }
+            });
+            
+            if (historyData.length > 0) {
+                const historyWs = XLSX.utils.json_to_sheet(historyData);
+                XLSX.utils.book_append_sheet(wb, historyWs, '学习记录');
+            }
+            
+            // 4. 笔记表
+            const notesData = [];
+            skills.forEach(skill => {
+                if (skill.notes && skill.notes.trim() !== '') {
+                    notesData.push({
+                        '技能名称': skill.name,
+                        '笔记内容': skill.notes
+                    });
+                }
+            });
+            
+            if (notesData.length > 0) {
+                const notesWs = XLSX.utils.json_to_sheet(notesData);
+                XLSX.utils.book_append_sheet(wb, notesWs, '学习笔记');
+            }
+            
+            // 生成并下载Excel文件
+            const fileName = `技能学习记录_${user.name || 'user'}_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 用户菜单切换
+            userMenuButton.addEventListener('click', () => {
+                userDropdownMenu.classList.toggle('hidden');
+            });
+            
+            // 点击其他区域关闭用户菜单
+            document.addEventListener('click', (e) => {
+                if (!userMenuContainer.contains(e.target)) {
+                    userDropdownMenu.classList.add('hidden');
+                }
+            });
+            
+            // 编辑用户资料
+            editUserProfileBtn.addEventListener('click', () => {
+                userDropdownMenu.classList.add('hidden');
+                showUserProfileModal();
+            });
+            
+            // 完善资料按钮
+            completeProfileBtn.addEventListener('click', () => {
+                userWelcomeSection.classList.add('hidden');
+                showUserProfileModal();
+            });
+            
+            // 关闭用户资料模态框
+            closeUserProfileModalBtn.addEventListener('click', closeUserProfileModal);
+            
+            // 用户资料表单提交
+            userProfileForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                // 更新用户信息
+                user.name = userNameInput.value.trim() || '游客';
+                saveUserInfo();
+                renderUserInfo();
+                
+                // 关闭模态框
+                closeUserProfileModal();
+                
+                // 隐藏欢迎区域
+                userWelcomeSection.classList.add('hidden');
+            });
+            
+            // 复制用户ID
+            copyUserIdBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(userIdDisplay.value)
+                    .then(() => {
+                        const originalText = copyUserIdBtn.innerHTML;
+                        copyUserIdBtn.innerHTML = '<i class="fa fa-check"></i>';
+                        setTimeout(() => {
+                            copyUserIdBtn.innerHTML = originalText;
+                        }, 2000);
+                    })
+                    .catch(err => {
+                        console.error('无法复制文本: ', err);
+                        alert('复制失败，请手动复制');
+                    });
+            });
+            
+            // 头像上传
+            avatarUploadInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        user.avatar = event.target.result;
+                        profileAvatarPreview.src = user.avatar;
+                        saveUserInfo();
+                        renderUserInfo();
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            // 数据同步按钮
+            syncDataBtn.addEventListener('click', showSyncDataModal);
+            
+            // 导入数据按钮（用户菜单）
+            importUserDataBtn.addEventListener('click', () => {
+                userDropdownMenu.classList.add('hidden');
+                showSyncDataModal();
+            });
+            
+            // 关闭同步模态框
+            closeSyncModalBtn.addEventListener('click', closeSyncDataModal);
+            closeSyncBtn.addEventListener('click', closeSyncDataModal);
+            
+            // 导出完整数据
+            exportFullDataBtn.addEventListener('click', exportFullUserData);
+            
+            // 导入完整数据
+            importFullDataInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    importFullUserData(file);
+                    // 清空输入值，允许重复选择同一个文件
+                    e.target.value = '';
+                }
+            });
+            
+            // 重置用户数据
+            resetUserDataBtn.addEventListener('click', () => {
+                userDropdownMenu.classList.add('hidden');
+                resetUserData();
+            });
+            
+            // 添加技能表单提交（带目标时长）
+            addSkillForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const name = skillNameInput.value.trim();
+                const targetHours = skillTargetInput.value.trim();
+                
+                if (name && targetHours && !isNaN(targetHours) && parseInt(targetHours) >= 1) {
+                    addSkill(name, targetHours);
+                    skillNameInput.value = '';
+                    skillTargetInput.value = '';
+                    skillNameInput.focus();
+                } else {
+                    alert('请输入有效的技能名称和目标时长（至少1小时）');
+                }
+            });
+            
+            // 计时器控制
+            startTimerBtn.addEventListener('click', startTimer);
+            pauseTimerBtn.addEventListener('click', pauseTimer);
+            stopTimerBtn.addEventListener('click', stopTimer);
+            
+            // 编辑技能
+            editSkillBtn.addEventListener('click', () => {
+                if (!currentSkillId) return;
+                
+                const skill = skills.find(s => s.id === currentSkillId);
+                if (skill) {
+                    editSkillIdInput.value = skill.id;
+                    editSkillNameInput.value = skill.name;
+                    editSkillTargetInput.value = skill.targetHours || '';
+                    
+                    // 显示模态框
+                    editModalEl.classList.remove('hidden');
+                    setTimeout(() => {
+                        modalContentEl.classList.remove('scale-95', 'opacity-0');
+                        modalContentEl.classList.add('scale-100', 'opacity-100');
+                    }, 10);
+                    
+                    editSkillNameInput.focus();
+                }
+            });
+            
+            // 关闭模态框
+            closeModalBtn.addEventListener('click', closeModal);
+            
+            // 点击模态框外部关闭
+            editModalEl.addEventListener('click', (e) => {
+                if (e.target === editModalEl) {
+                    closeModal();
+                }
+            });
+            
+            // 编辑技能表单提交（包括目标时长）
+            editSkillForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const id = editSkillIdInput.value;
+                const newName = editSkillNameInput.value.trim();
+                const newTargetHours = editSkillTargetInput.value.trim();
+                
+                if (id && newName && newTargetHours && !isNaN(newTargetHours) && parseInt(newTargetHours) >= 1) {
+                    updateSkill(id, newName, newTargetHours);
+                    closeModal();
+                } else {
+                    alert('请输入有效的技能名称和目标时长（至少1小时）');
+                }
+            });
+            
+            // 关闭模态框函数
+            function closeModal() {
+                modalContentEl.classList.remove('scale-100', 'opacity-100');
+                modalContentEl.classList.add('scale-95', 'opacity-0');
+                
+                setTimeout(() => {
+                    editModalEl.classList.add('hidden');
+                }, 300);
+            }
+            
+            // 删除技能
+            deleteSkillBtn.addEventListener('click', () => {
+                const id = editSkillIdInput.value;
+                if (id && confirm('确定要删除这个技能吗？所有学习记录、任务和笔记也会被删除。')) {
+                    deleteSkill(id);
+                    closeModal();
+                }
+            });
+            
+            // 主题切换
+            themeToggleBtn.addEventListener('click', toggleTheme);
+            
+            // 任务相关事件（支持批量添加）
+            addTaskBtn.addEventListener('click', showTaskModal);
+            closeTaskModalBtn.addEventListener('click', closeTaskModal);
+            
+            // 点击任务模态框外部关闭
+            taskModalEl.addEventListener('click', (e) => {
+                if (e.target === taskModalEl) {
+                    closeTaskModal();
+                }
+            });
+            
+            // 添加任务表单提交（解析Markdown列表）
+            addTaskForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const markdownText = taskListInput.value.trim();
+                
+                if (markdownText) {
+                    // 解析Markdown文本为任务列表
+                    const tasks = parseMarkdownTasks(markdownText);
+                    if (tasks.length > 0) {
+                        addMultipleTasks(tasks);
+                        closeTaskModal();
+                    } else {
+                        alert('未识别到有效的任务列表，请使用Markdown列表格式（以-或*开头）');
+                    }
+                }
+            });
+            
+            // 笔记相关事件
+            notesEditorEl.addEventListener('input', updateNoteWordCount);
+            saveNoteBtn.addEventListener('click', () => {
+                saveNotes(notesEditorEl.value);
+            });
+            
+            // 导出Excel数据事件
+            exportDataBtn.addEventListener('click', exportToExcel);
+            
+            // 页面关闭前确保计时器已停止
+            window.addEventListener('beforeunload', () => {
+                if (timerInterval) {
+                    stopTimer();
+                }
+            });
+        }
+
+        // 启动应用
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
